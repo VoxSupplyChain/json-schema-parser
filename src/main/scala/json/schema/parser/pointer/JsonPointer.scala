@@ -1,8 +1,5 @@
-package json.schema.parser
+package json.schema.parser.pointer
 
-import argonaut._
-
-import scala.annotation.tailrec
 import scala.util.parsing.combinator.Parsers
 import scala.util.parsing.input.CharSequenceReader
 import scala.util.{Try, Failure => TryFailure, Success => TrySuccess}

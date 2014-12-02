@@ -1,4 +1,4 @@
-package json.schema.parser
+package json.schema.parser.pointer
 
 import java.net.URI
 
@@ -7,7 +7,6 @@ import argonaut._
 import scala.annotation.tailrec
 import scala.util.{Failure, Success}
 import scalaz.Validation
-import scalaz.Scalaz._
 
 /**
  * JsonPointer resolver and decoder for Argonaut Json documents.

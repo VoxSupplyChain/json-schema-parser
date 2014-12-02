@@ -1,12 +1,14 @@
-package json.schema.parser
+package json.pointer
 
 import java.net.URI
 
 import argonaut.Argonaut._
+import json.schema.parser.ScalazMatchers
+import json.schema.parser.pointer.{JsonPointer, JsonPointerDecodeJson}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
-import scalaz.{Failure, Success}
+import scalaz.Success
 
 class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 
