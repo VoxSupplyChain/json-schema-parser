@@ -1,4 +1,4 @@
-package json.schema.parser.pointer
+package json.pointer
 
 import java.net.URI
 

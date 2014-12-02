@@ -1,4 +1,4 @@
-package json.schema.parser.pointer
+package json.pointer
 
 import scala.util.parsing.combinator.Parsers
 import scala.util.parsing.input.CharSequenceReader
