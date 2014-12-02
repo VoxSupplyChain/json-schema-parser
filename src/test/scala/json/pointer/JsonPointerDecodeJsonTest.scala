@@ -4,7 +4,7 @@ import java.net.URI
 
 import argonaut.Argonaut._
 import json.schema.parser.ScalazMatchers
-import json.schema.parser.pointer.{JsonPointer, JsonPointerDecodeJson}
+import json.pointer.{JsonPointer, JsonPointerDecodeJson}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
