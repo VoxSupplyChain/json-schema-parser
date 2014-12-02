@@ -224,7 +224,7 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
 //    r.map(_.definitions("schema2").items) shouldBe Success(new URI("http://my.site/schema1"))
 //  }
 
-  implicit val validSchemas: Gen[File] = Gen.oneOf(new File("src/test/resources/schema/valid").listFiles(new FilenameFilter {
+  implicit val validSchemas: Gen[File] = Gen.oneOf(new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
     override def accept(dir: File, name: String): Boolean = name endsWith ".json"
   }).toList)
 
