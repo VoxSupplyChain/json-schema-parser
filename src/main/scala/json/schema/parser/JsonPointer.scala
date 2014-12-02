@@ -7,7 +7,11 @@ import scala.util.parsing.combinator.Parsers
 import scala.util.parsing.input.CharSequenceReader
 import scala.util.{Try, Failure => TryFailure, Success => TrySuccess}
 
-
+/**
+ * Based on code from https://github.com/plasmaconduit/json-pointer/blob/master/src/main/scala/com/plasmaconduit/jsonpointer/JsonPointer.scala
+ * @param head
+ * @param tail
+ */
 case class JsonPointer(head: JsonPointerStep, tail: Option[JsonPointer]) {
   override def toString: String = {
     val t = tail.fold("")(_.toString)
@@ -48,11 +52,11 @@ object JsonPointer extends Parsers {
     case _ ~ c => c
   }
 
-  val string = rep1(escapedSeparator | escapedTilde | notSeparator) ^^ {
+  val string = rep(escapedSeparator | escapedTilde | notSeparator ) ^^ {
     case list => JsonPointerStringStep(list.mkString)
   }
 
-  val step = separator ~> (numeric | string)
+  val step = separator ~> (numeric | string )
 
   def parser: Parser[Try[JsonPointer]] = phrase(rep1(step)) ^^ {
     case x :: xs => TrySuccess(stepsToJsonPointer(x :: xs))
@@ -67,7 +71,7 @@ object JsonPointer extends Parsers {
     else
       parser(new CharSequenceReader(pointer)) match {
         case Success(steps, _) => steps
-        case NoSuccess(error, _) => TryFailure(new IllegalArgumentException(error))
+        case NoSuccess(error, _) => TryFailure(new IllegalArgumentException(s"$error: [$pointer]"))
       }
   }
 
