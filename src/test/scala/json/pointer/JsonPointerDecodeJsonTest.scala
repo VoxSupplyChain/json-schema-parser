@@ -104,7 +104,7 @@ class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChe
       (new URI("#/m~0n"), jNumber(8))
     ) foreach {
       fe =>
-        JsonPointerDecodeJson(fe._1) flatMap (d => d(sampleFromSpec.hcursor).toDisjunction.validation) shouldBe Success(fe._2)
+        JsonPointerDecodeJson(fe._1).validation flatMap (d => d(sampleFromSpec.hcursor).toDisjunction.validation) shouldBe Success(fe._2)
     }
 
   }

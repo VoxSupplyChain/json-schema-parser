@@ -47,7 +47,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
 
       // sub documents with reference to this document id
       resolvedId: URI = if (rootSchema) id.getOrElse(parentId) else id.map( resolve(parentId, _)).getOrElse(parentId)
-      nestedDocumentDecoder = apply(resolvedId, false)
+      nestedDocumentDecoder = apply(resolvedId, rootSchema=false)
 
       // handy methods to decode common types
       listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
@@ -144,5 +144,5 @@ object JsonSchemaDecoderFactory {
 
   private val schemaVersions = Set(new URI("http://json-schema.org/schema#"), new URI("http://json-schema.org/draft-04/schema#"))
 
-  def apply[N](implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(new URI("#"), true)
+  def apply[N](implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(new URI("#"), rootSchema=true)
 }

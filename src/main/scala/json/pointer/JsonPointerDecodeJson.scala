@@ -6,7 +6,7 @@ import argonaut._
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success}
-import scalaz.Validation
+import scalaz._
 
 /**
  * JsonPointer resolver and decoder for Argonaut Json documents.
@@ -14,9 +14,9 @@ import scalaz.Validation
  */
 object JsonPointerDecodeJson {
 
-  def apply(u: URI): Validation[String, DecodeJson[Json]] = JsonPointer(u.getFragment).map(p=>DecodeJson(query(p))) match {
-    case Success(d) => scalaz.Success(d)
-    case Failure(e) => scalaz.Failure(e.getMessage)
+  def apply(u: URI): String \/ DecodeJson[Json] = JsonPointer(u.getFragment).map(p=>DecodeJson(query(p))) match {
+    case Success(d) => \/-(d)
+    case Failure(e) => -\/(e.getMessage)
   }
 
   def apply(p: JsonPointer): DecodeJson[Json] = DecodeJson(query(p))

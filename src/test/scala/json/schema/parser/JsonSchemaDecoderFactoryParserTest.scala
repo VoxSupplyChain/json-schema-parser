@@ -28,7 +28,7 @@ trait ScalazMatchers {
 
 class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers{
 
-  JsonSchemaParser.toString should "parse empty schemas" in {
+  JsonSchemaParser.getClass.toString should "parse empty schemas" in {
 
     JsonSchemaParser(
       """

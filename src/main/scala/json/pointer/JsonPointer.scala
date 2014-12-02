@@ -6,8 +6,6 @@ import scala.util.{Try, Failure => TryFailure, Success => TrySuccess}
 
 /**
  * Based on code from https://github.com/plasmaconduit/json-pointer/blob/master/src/main/scala/com/plasmaconduit/jsonpointer/JsonPointer.scala
- * @param head
- * @param tail
  */
 case class JsonPointer(head: JsonPointerStep, tail: Option[JsonPointer]) {
   override def toString: String = {
