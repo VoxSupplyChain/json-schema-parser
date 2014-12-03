@@ -46,13 +46,13 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
 
   }
 
-  private def decodeUri(s: String): String \/ URI = \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s))).leftMap(_.getMessage)
+  private def parseUri(s: String): String \/ URI = \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s))).leftMap(_.getMessage)
 
   private def reference(json: Json): Option[String \/ URI] =
     for {
       ref <- json.field("$ref")
       str <- ref.string
-    } yield decodeUri(str)
+    } yield parseUri(str)
 
 
   def resolvePointer(reference: URI)(implicit root: Json): String \/ Json = {
