@@ -1,16 +1,15 @@
 package json.schema.parser
 
-import java.net.{URISyntaxException, URI}
+import java.net.URI
 import java.util.NoSuchElementException
 
 import argonaut.Argonaut._
 import argonaut._
 
-import scala.util.control.Exception
 import scala.util.matching.Regex
 
 
-private[parser] object SchemaDecoders extends DecodeJsons {
+object SchemaDecoders extends DecodeJsons {
 
   implicit def RegexDecoder: DecodeJson[Regex] = StringDecodeJson.map(_.r)
 
@@ -19,27 +18,31 @@ private[parser] object SchemaDecoders extends DecodeJsons {
     StringDecodeJson.flatMap {
       uri =>
         DecodeJson(
-          j =>
-            Exception.catching(classOf[URISyntaxException]).opt(new URI(uri)) match {
-              case None => DecodeResult.fail("URI", j.history)
-              case Some(w) => DecodeResult.ok(w)
+          j => {
+            try{
+              DecodeResult.ok(new URI(uri))
+            } catch {
+              case e:NoSuchElementException => DecodeResult.fail("Uri", j.history)
             }
+          }
         )
     })
 
   implicit def formatCodec: CodecJson[Format.Format] = CodecJson[Format.Format]((v: Format.Format) => v.toString.asJson, (j: HCursor) => j.as[String].flatMap {
     s: String =>
-      Exception.catching(classOf[NoSuchElementException]).opt(Format.withName(s)) match {
-        case None => DecodeResult.fail("Format", j.history)
-        case Some(w) => DecodeResult.ok(w)
+      try{
+        DecodeResult.ok(Format.withName(s))
+      } catch {
+        case e:NoSuchElementException => DecodeResult.fail("Format", j.history)
       }
   })
 
   implicit def simpleTypeCodec: CodecJson[SimpleType.SimpleType] = CodecJson[SimpleType.SimpleType]((v: SimpleType.SimpleType) => v.toString.asJson, (j: HCursor) => j.as[String].flatMap {
     s: String =>
-      Exception.catching(classOf[NoSuchElementException]).opt(SimpleType.withName(s)) match {
-        case None => DecodeResult.fail("SimpleType", j.history)
-        case Some(w) => DecodeResult.ok(w)
+      try{
+        DecodeResult.ok(SimpleType.withName(s))
+      } catch {
+        case e:NoSuchElementException => DecodeResult.fail("SimpleType", j.history)
       }
   })
 
