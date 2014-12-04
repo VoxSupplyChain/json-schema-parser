@@ -11,22 +11,22 @@ class ReferenceTraverserTest extends FlatSpec with GeneratorDrivenPropertyChecks
   import argonaut.Argonaut._
   import argonaut._
 
-  def replaceRefWithNull(json: Json): ReferenceTraverser.TraverseResult = ReferenceTraverser(json.hcursor)(_ => jNull)
+  def replaceRefWithNull(json: Json): ReferenceTraverser.TraverseResult = ReferenceTraverser(json.hcursor)(_ => \/-(jNull))
 
   def shouldNotChange(json: String) = {
     val j = json.stripMargin.parseOption.get
-    replaceRefWithNull(j) shouldBe Success(j)
+    replaceRefWithNull(j) shouldBe \/-(j)
   }
 
   def shouldChange(json: String, to: String) = {
     val j = json.stripMargin.parseOption.get
     val t = to.stripMargin.parseOption.get
-    replaceRefWithNull(j) shouldBe Success(t)
+    replaceRefWithNull(j) shouldBe \/-(t)
   }
 
   def shouldFail(json: String) = {
     val j = json.stripMargin.parseOption.get
-    replaceRefWithNull(j) shouldBe a[Failure[_,_]]
+    replaceRefWithNull(j).isLeft shouldBe true
   }
 
   "JsonTraverser" should "not modify json without references" in {

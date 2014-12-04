@@ -1,18 +1,28 @@
 package json.reference
 
 import argonaut.Argonaut._
-import json.schema.parser.ScalazMatchers
+import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz._
 
-class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
+class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers {
 
+  def containLeft(contain: String) =
+    new Matcher[\/[_, _]] {
+      def apply(left: \/[_, _]) = {
+        val r = left match {
+          case -\/(e) => e.toString.contains(contain)
+          case _ => false
+        }
+        MatchResult(r, s"$left does not contain '$contain'", s"$left contains '$contain'")
+      }
+    }
 
   def shouldResolve(from: String, to: String) = from.stripMargin.parse.flatMap(j => ReferenceResolver(j)) shouldBe to.stripMargin.parse
 
-  def shouldFailResolve(from: String) = from.stripMargin.parse.flatMap(j => ReferenceResolver(j)) shouldBe a [-\/[_]]
+  def shouldFailResolve(from: String, containErr: String) = from.stripMargin.parse.flatMap(j => ReferenceResolver(j)) should containLeft(containErr)
 
 
   ReferenceResolver.getClass.toString should "not change json doc if no references" in {
@@ -102,8 +112,19 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
         |{
         | "a": {"$ref": "#/b"}
         |}
-      """
+      """,
+      "reference #/b not found"
     )
+
+    shouldFailResolve(
+      """
+        |{
+        | "a": {"$ref": "http://google.com/somedoc"}
+        |}
+      """,
+      "reference http://google.com/somedoc not found"
+    )
+
   }
 
   it should "fail to resolve cyclic references" in {
@@ -114,7 +135,8 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
         | "b": {"$ref": "#/c"},
         | "c": {"$ref": "#/a"}
         |}
-      """
+      """,
+      "cyclic reference"
     )
   }
 

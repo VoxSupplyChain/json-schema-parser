@@ -1,5 +1,6 @@
 package json.reference
 
+import java.io.IOException
 import java.net.{URISyntaxException, URI}
 
 import argonaut.{Argonaut, JsonObject, Json}
@@ -23,57 +24,36 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
     resolve(json)(json)
   }
 
-  private def resolve(json: Json)(implicit root: Json): String \/ Json = {
+  private def resolve(json: Json)(implicit root: Json): String \/ Json = ReferenceTraverser(json.hcursor) {
+    uri =>
+      val resolved = if (uri.toString.startsWith("#"))
+        resolvePointer(uri)(root)
+      else
+        resolveReference(uri, fromURI)
 
-    reference(json) map {
-      _ flatMap {
-        uri =>
-          if (uri.toString.startsWith("#"))
-            resolvePointer(uri)(root)
-          else
-            resolveReference(uri, fromURI(uri))
-      }
-    } getOrElse {
-      \/-(
-        json.withObject {
-          (obj: JsonObject) =>
-            obj.withJsons(i => resolve(i).valueOr(_ => i))
-        }.withArray { array =>
-          array.map(i => resolve(i).valueOr(_ => i))
-        }
-      )
-    }
-
+      resolved leftMap (cause => s"reference $uri not found: $cause")
   }
 
-  private def parseUri(s: String): String \/ URI = \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s))).leftMap(_.getMessage)
-
-  private def reference(json: Json): Option[String \/ URI] =
-    for {
-      ref <- json.field("$ref")
-      str <- ref.string
-    } yield parseUri(str)
-
-
   def resolvePointer(reference: URI)(implicit root: Json): String \/ Json = {
-    resolveReference(reference, \/-(root))
+    resolveReference(reference, _ => \/-(root))
   }
 
   /**
    * @param reference reference with a pointer
    * @return
    */
-  def resolveReference(reference: URI, loader: => String \/ Json): String \/ Json = {
+  def resolveReference(reference: URI, loader: URI => String \/ Json): String \/ Json = {
     if (inprogress.contains(reference))
-      -\/(s"cyclic dependency found: $reference")
+      -\/(s"found cyclic reference: $reference")
     else {
       // the refered Json document must be resolved as well
-      loader.flatMap {
+      loader(reference).flatMap {
         root =>
+          println(s"$reference in $root")
           JsonPointerDecodeJson(reference).flatMap(d => d(root.hcursor).toDisjunction.leftMap(_.toString())) flatMap {
             pointedNode =>
-              val nestedResolver=new ReferenceResolver(inprogress.push(reference))
-              nestedResolver(pointedNode)
+              val nestedResolver = new ReferenceResolver(inprogress.push(reference))
+              nestedResolver.resolve(pointedNode)(root)
           }
 
       }
@@ -81,10 +61,14 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
   }
 
   def fromURI(reference: URI): String \/ Json = {
-    import scala.io.Source
-    val html = if (reference.isAbsolute) Source.fromURL(reference.toURL) else Source.fromURI(reference)
-    val s = html.mkString
-    s.parse
+    try {
+      import scala.io.Source
+      val html = if (reference.isAbsolute) Source.fromURL(reference.toURL) else Source.fromURI(reference)
+      val s = html.mkString
+      s.parse
+    } catch {
+      case e: IOException => -\/(e.getMessage)
+    }
   }
 
 }

@@ -21,13 +21,17 @@ trait ReferenceTraverser {
 
   sealed case class TArray(lastIndex: Int) extends TraverseOp
 
-  type TraverseResult = Validation[String, Json]
+  type TraverseResult = String \/ Json
   type TraverseStack = Stack[TraverseOp]
   type TraverseState = TraverseResult \/ TraverseStack
 
   def initialState: TraverseState = \/-(Stack(TCheck))
 
-  private def withStack(tuple: (TraverseStack, ACursor)): (\/-[TraverseStack], ACursor) = (\/-(tuple._1), tuple._2)
+  def success(hc: HCursor): (TraverseState, ACursor) = (-\/(\/-(hc.focus)), hc.failedACursor)
+
+  def failure(err: String, hc: HCursor): (TraverseState, ACursor) = (-\/(-\/(err)), hc.failedACursor)
+
+  private def withStack(tuple: (TraverseStack, ACursor)): (TraverseState, ACursor) = (\/-(tuple._1), tuple._2)
 
   private def parseUri(s: String): String \/ URI = \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s))).leftMap(_.getMessage)
 
@@ -37,7 +41,7 @@ trait ReferenceTraverser {
       str <- ref.string
     } yield parseUri(str)
 
-  def treeTraverser(resolve: URI => Json)(state: TraverseState, hc: HCursor): (TraverseState, ACursor) = {
+  def treeTraverser(resolve: URI => String \/ Json)(state: TraverseState, hc: HCursor): (TraverseState, ACursor) = {
     state.fold(
       s => (state, hc.failedACursor),
       fs => {
@@ -45,12 +49,15 @@ trait ReferenceTraverser {
           case TCheck =>
             jsonReference(hc.focus) match {
               case Some(\/-(ref)) =>
-                val replaced: HCursor = hc.set(resolve(ref))
-                withStack {
-                  (fs.tail, replaced.acursor)
-                }
+                resolve(ref).fold(
+                  f => failure(f, hc),
+                  resolvedNode =>
+                    withStack {
+                      (fs.tail, hc.set(resolvedNode).acursor)
+                    }
+                )
               case Some(-\/(err)) =>
-                (-\/(Failure(err)), hc.failedACursor)
+                failure(err, hc)
               case None =>
                 withStack {
                   hc.focus.arrayOrObject(
@@ -83,7 +90,7 @@ trait ReferenceTraverser {
               (fs.tail, hc.up)
             }
         } getOrElse {
-          (-\/(Success(hc.focus)), hc.failedACursor)
+          success(hc)
         }
       }
     )
@@ -92,8 +99,8 @@ trait ReferenceTraverser {
 }
 
 object ReferenceTraverser extends ReferenceTraverser {
-  def apply(hcursor: HCursor)(resolve: URI => Json): TraverseResult = hcursor.traverseUntilDone(initialState)(treeTraverser(resolve)) match {
+  def apply(hcursor: HCursor)(resolve: URI => String \/ Json): String \/ Json = hcursor.traverseUntilDone(initialState)(treeTraverser(resolve)) match {
     case -\/(v) => v
-    case \/-(s) => Failure("json traversal is incomplete")
+    case \/-(s) => -\/("json traversal is incomplete")
   }
 }

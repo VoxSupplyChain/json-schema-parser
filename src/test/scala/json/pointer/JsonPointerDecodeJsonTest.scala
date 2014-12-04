@@ -34,11 +34,11 @@ class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChe
   }
 
   it should " fail for /<unknown> " in {
-    JsonPointerDecodeJson(JsonPointer("/f").get)(json.hcursor).toDisjunction.validation should failureContaining("f not found")
+    JsonPointerDecodeJson(JsonPointer("/f").get)(json.hcursor).toDisjunction.validation should containFailure("f not found")
   }
 
   it should " fail for array index out of bounds /a/c/<unknown> " in {
-    JsonPointerDecodeJson(JsonPointer("/a/c/10").get)(json.hcursor).toDisjunction.validation should failureContaining("10 not found")
+    JsonPointerDecodeJson(JsonPointer("/a/c/10").get)(json.hcursor).toDisjunction.validation should containFailure("10 not found")
   }
 
   it should " satisfy example from the JSON-Pointer spec " in {

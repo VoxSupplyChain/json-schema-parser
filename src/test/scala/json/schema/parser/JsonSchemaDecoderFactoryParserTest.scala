@@ -13,7 +13,7 @@ import scalaz.{Validation, Failure, Success}
 
 trait ScalazMatchers {
 
-  def failureContaining(contain: String) =
+  def containFailure(contain: String) =
     new Matcher[Validation[_, _]] {
       def apply(left: Validation[_, _]) = {
         val r = left match {
@@ -100,7 +100,7 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
         |{
         |    "$schema":"http://json-schema.org/draft-03/schema#"
         |}
-      """.stripMargin).map(_.schema) should failureContaining("not supported schema")
+      """.stripMargin).map(_.schema) should containFailure("not supported schema")
 
   }
 
@@ -126,13 +126,13 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
         |{
         |    "id":""
         |}
-      """.stripMargin).map(_.schema) should failureContaining("not valid id")
+      """.stripMargin).map(_.schema) should containFailure("not valid id")
     JsonSchemaParser(
       """
         |{
         |    "id":"#"
         |}
-      """.stripMargin).map(_.schema) should failureContaining("not valid id")
+      """.stripMargin).map(_.schema) should containFailure("not valid id")
   }
 
   it should "resolve id based on parent schema" in {
