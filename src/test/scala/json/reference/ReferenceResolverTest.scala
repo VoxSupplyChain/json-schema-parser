@@ -140,4 +140,15 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
     )
   }
 
+
+  it should "fail to resolve invalid reference uri" in {
+    shouldFailResolve(
+      """
+        |{
+        | "a": {"$ref": " invalid reference "}
+        |}
+      """,
+      "invalid reference"
+    )
+  }
 }

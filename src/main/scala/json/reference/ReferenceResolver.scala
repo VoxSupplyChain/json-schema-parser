@@ -49,7 +49,6 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
       // the refered Json document must be resolved as well
       loader(reference).flatMap {
         root =>
-          println(s"$reference in $root")
           JsonPointerDecodeJson(reference).flatMap(d => d(root.hcursor).toDisjunction.leftMap(_.toString())) flatMap {
             pointedNode =>
               val nestedResolver = new ReferenceResolver(inprogress.push(reference))
