@@ -14,9 +14,12 @@ import scalaz._
  */
 object JsonPointerDecodeJson {
 
-  def apply(u: URI): String \/ DecodeJson[Json] = JsonPointer(u.getFragment).map(p=>DecodeJson(query(p))) match {
-    case Success(d) => \/-(d)
-    case Failure(e) => -\/(e.getMessage)
+  def apply(u: URI): String \/ DecodeJson[Json] = {
+    val pointer = Option(u.getFragment).map(JsonPointer.apply).getOrElse(Success(JsonPointer.root))
+    pointer.map(p => DecodeJson(query(p))) match {
+      case Success(d) => \/-(d)
+      case Failure(e) => -\/(e.getMessage)
+    }
   }
 
   def apply(p: JsonPointer): DecodeJson[Json] = DecodeJson(query(p))

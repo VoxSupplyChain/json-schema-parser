@@ -1,5 +1,7 @@
 package json.reference
 
+import java.io.File
+
 import argonaut.Argonaut._
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
@@ -20,9 +22,11 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
       }
     }
 
-  def shouldResolve(from: String, to: String) = from.stripMargin.parse.flatMap(j => ReferenceResolver(j)) shouldBe to.stripMargin.parse
+  def shouldResolve(from: String, to: String) = ReferenceResolver(from.stripMargin) shouldBe to.stripMargin.parse
 
-  def shouldFailResolve(from: String, containErr: String) = from.stripMargin.parse.flatMap(j => ReferenceResolver(j)) should containLeft(containErr)
+  def shouldResolve(from: File, to: String) = ReferenceResolver(from) shouldBe to.stripMargin.parse
+
+  def shouldFailResolve(from: String, containErr: String) = ReferenceResolver(from.stripMargin) should containLeft(containErr)
 
 
   ReferenceResolver.getClass.toString should "not change json doc if no references" in {
@@ -149,6 +153,17 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
         |}
       """,
       "invalid reference"
+    )
+  }
+
+  it should "resolve references to local files" in {
+    shouldResolve(
+      new File("src/test/resources/json/reference/source.json"),
+      """
+        |{
+        | "source": "value"
+        |}
+      """
     )
   }
 }

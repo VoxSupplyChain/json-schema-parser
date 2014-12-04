@@ -1,6 +1,6 @@
 package json.reference
 
-import java.io.IOException
+import java.io.{File, IOException}
 import java.net.{URISyntaxException, URI}
 
 import argonaut.{Argonaut, JsonObject, Json}
@@ -10,7 +10,7 @@ import json.pointer.{JsonPointerDecodeJson, JsonPointer}
 import scala.annotation.tailrec
 import scala.collection.immutable.Stack
 import scala.util.Try
-import scala.util.control.Exception
+import scala.util.control.{NonFatal, Exception}
 import scalaz._
 
 
@@ -20,29 +20,31 @@ import scalaz._
  */
 class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
 
-  def apply(json: Json): String \/ Json = {
-    resolve(json)(json)
+  def relative(parent: URI, sub: URI) = {
+    val resolved = parent.resolve(sub)
+    if (resolved.getFragment == null || resolved.getFragment.isEmpty) resolved.resolve("#") else resolved
   }
 
-  private def resolve(json: Json)(implicit root: Json): String \/ Json = ReferenceTraverser(json.hcursor) {
+
+  private def resolve(json: Json)(implicit root: Json, rootURI: URI): String \/ Json = ReferenceTraverser(json.hcursor) {
     uri =>
       val resolved = if (uri.toString.startsWith("#"))
-        resolvePointer(uri)(root)
+        resolvePointer(uri)(root, rootURI)
       else
-        resolveReference(uri, fromURI)
+        resolveReference(relative(rootURI, uri))(rootURI, fromURI)
 
       resolved leftMap (cause => s"reference $uri not found: $cause")
   }
 
-  def resolvePointer(reference: URI)(implicit root: Json): String \/ Json = {
-    resolveReference(reference, _ => \/-(root))
+  def resolvePointer(reference: URI)(implicit root: Json, rootURI: URI): String \/ Json = {
+    resolveReference(reference)(rootURI, _ => \/-(root))
   }
 
   /**
    * @param reference reference with a pointer
    * @return
    */
-  def resolveReference(reference: URI, loader: URI => String \/ Json): String \/ Json = {
+  def resolveReference(reference: URI)( implicit rootURI: URI, loader: URI => String \/ Json): String \/ Json = {
     if (inprogress.contains(reference))
       -\/(s"found cyclic reference: $reference")
     else {
@@ -52,7 +54,7 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
           JsonPointerDecodeJson(reference).flatMap(d => d(root.hcursor).toDisjunction.leftMap(_.toString())) flatMap {
             pointedNode =>
               val nestedResolver = new ReferenceResolver(inprogress.push(reference))
-              nestedResolver.resolve(pointedNode)(root)
+              nestedResolver.resolve(pointedNode)(root, rootURI)
           }
 
       }
@@ -66,7 +68,7 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
       val s = html.mkString
       s.parse
     } catch {
-      case e: IOException => -\/(e.getMessage)
+      case NonFatal(e) => -\/(e.getMessage)
     }
   }
 
@@ -79,7 +81,10 @@ object ReferenceResolver {
 
   val local: ReferenceResolver = new ReferenceResolver()
 
-  def apply(root: Json): String \/ Json = local.resolvePointer(new URI("#"))(root)
+  def apply(root: Json): String \/ Json = local.resolvePointer(new URI("#"))(root, new URI(""))
+
+  def apply(file: File): String \/ Json =
+    scala.io.Source.fromFile(file).mkString.parse.flatMap(root => local.resolvePointer(file.toURI)(root, file.toURI))
 
   def apply(json: String): String \/ Json = json.parse.flatMap(apply)
 
