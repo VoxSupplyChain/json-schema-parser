@@ -250,11 +250,7 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
   it should "fail to parse schemas with cyclic reference" in {
     forAll(cyclicSchemas) {
       f: File =>
-        val source = scala.io.Source.fromFile(f)
-        val lines = source.mkString
-        source.close()
-
-        JsonSchemaParser(lines) should containFailure("cyclic reference")
+        JsonSchemaParser.parse(f).validation should containFailure("cyclic reference")
     }
   }
 
