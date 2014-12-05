@@ -13,15 +13,15 @@ import scalaz._
 
 class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
 
-  val schemaDecoder = JsonSchemaDecoderFactory[N]
+  def schemaDecoder(uri: URI) = JsonSchemaDecoderFactory[N](uri)
 
-  private def parseToSchema(j: Json) = j.jdecode(schemaDecoder).toDisjunction.leftMap(r => r._1 +": "+r._2.shows)
+  private def parseToSchema(uri: URI)( j: Json) = j.jdecode(schemaDecoder(uri)).toDisjunction.leftMap(r => r._1 +": "+r._2.shows)
 
-  def parse(file: File): String \/ SchemaDocument[N] = ReferenceResolver(file).flatMap(parseToSchema)
+  def parse(file: File): String \/ SchemaDocument[N] = ReferenceResolver(file).flatMap(parseToSchema(file.toURI))
 
-  def parse(uri: URI): String \/ SchemaDocument[N] = ReferenceResolver(uri).flatMap(parseToSchema)
+  def parse(uri: URI): String \/ SchemaDocument[N] = ReferenceResolver(uri).flatMap(parseToSchema(uri))
 
-  def parse(json: Json): String \/ SchemaDocument[N] = ReferenceResolver(json).flatMap(parseToSchema)
+  def parse(json: Json): String \/ SchemaDocument[N] = ReferenceResolver(json).flatMap(parseToSchema(new URI("#")))
 
 }
 

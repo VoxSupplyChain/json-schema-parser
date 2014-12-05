@@ -150,5 +150,5 @@ object JsonSchemaDecoderFactory {
 
   private val schemaVersions = Set(new URI("http://json-schema.org/schema#"), new URI("http://json-schema.org/draft-04/schema#"))
 
-  def apply[N](implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(new URI("#"), rootSchema=true)
+  def apply[N](uri: URI = new URI("#"))(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(uri, rootSchema=true)
 }

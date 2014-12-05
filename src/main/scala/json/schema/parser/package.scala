@@ -74,6 +74,9 @@ package object parser {
                               val oneOf: List[SchemaDocument[N]],
                               val not: Option[SchemaDocument[N]],
                               val nestedSchemas: Map[String, SchemaDocument[N]]
-                              )
+                              ) {
+    override def toString: String = s"Schema[$id]"
+  }
+
 
 }
