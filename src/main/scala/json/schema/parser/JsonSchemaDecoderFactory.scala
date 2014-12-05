@@ -8,12 +8,12 @@ import argonaut.{DecodeJson, DecodeResult, HCursor, Json}
 import scala.util.matching.Regex
 
 
-class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]) extends URIResolver[N] {
+class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: DecodeJson[N])  {
 
   type Schema = SchemaDocument[N]
   
-  import JsonSchemaDecoderFactory._
-  import SchemaDecoders._
+  import json.schema.parser.JsonSchemaDecoderFactory._
+  import json.schema.parser.SchemaDecoders._
 
   private def validated[A](c: HCursor, successCondition: A => Boolean, err: => String): (A) => DecodeResult[A] = {
     v: A => if (successCondition(v)) DecodeResult.ok(v) else DecodeResult.fail(v.toString + err, c.history)
@@ -32,6 +32,12 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
   private def isValidId(uri: URI) = uri.toString != "#" && !uri.toString.isEmpty
 
   private def isValidSchema(uri: URI) = schemaVersions.contains(uri)
+
+  def resolve(parent: URI, sub: URI) = {
+    val resolved = parent.resolve(sub)
+    if (resolved.getFragment == null || resolved.getFragment.isEmpty) resolved.resolve("#") else resolved
+  }
+
 
   def apply(parentId: URI, rootSchema:Boolean): DecodeJson[Schema] = DecodeJson { c =>
 

@@ -1,15 +1,14 @@
 package json.schema.parser
 
-import java.io.{FilenameFilter, File}
+import java.io.{File, FilenameFilter}
 import java.net.URI
-import java.nio.file.{FileStore, Files}
 
 import org.scalacheck.Gen
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, FlatSpec, FunSuite}
+import org.scalatest.{FlatSpec, Matchers}
 
-import scalaz.{Validation, Failure, Success}
+import scalaz.{Failure, Success, Validation}
 
 trait ScalazMatchers {
 
@@ -224,18 +223,38 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
 //    r.map(_.definitions("schema2").items) shouldBe Success(new URI("http://my.site/schema1"))
 //  }
 
+  implicit val invalidSchemasURI: Gen[URI] = Gen.oneOf(List(new URI("http://swagger.io/v2/schema.json")))
+
   implicit val validSchemas: Gen[File] = Gen.oneOf(new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
+    override def accept(dir: File, name: String): Boolean = name endsWith ".json"
+  }).toList)
+
+  implicit val cyclicSchemas: Gen[File] = Gen.oneOf(new File("src/test/resources/json/schema/parser/invalid").listFiles(new FilenameFilter {
     override def accept(dir: File, name: String): Boolean = name endsWith ".json"
   }).toList)
 
   it should "parse all valid schemas" in {
     forAll(validSchemas) {
       f: File =>
+        JsonSchemaParser.parse(f).validation shouldBe a[Success[_, _]]
+    }
+  }
+
+  it should "fail to parse remote schemas with cyclic reference" in {
+    forAll(invalidSchemasURI) {
+      f: URI =>
+        JsonSchemaParser.parse(f).validation should containFailure("cyclic reference")
+    }
+  }
+
+  it should "fail to parse schemas with cyclic reference" in {
+    forAll(cyclicSchemas) {
+      f: File =>
         val source = scala.io.Source.fromFile(f)
         val lines = source.mkString
         source.close()
 
-        JsonSchemaParser(lines) shouldBe a[Success[_, _]]
+        JsonSchemaParser(lines) should containFailure("cyclic reference")
     }
   }
 

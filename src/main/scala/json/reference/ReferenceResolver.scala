@@ -1,16 +1,15 @@
 package json.reference
 
-import java.io.{File, IOException}
-import java.net.{URISyntaxException, URI}
+import java.io.File
+import java.net.URI
 
-import argonaut.{Argonaut, JsonObject, Json}
 import argonaut.Argonaut._
-import json.pointer.{JsonPointerDecodeJson, JsonPointer}
+import argonaut.{Argonaut, Json}
+import json.pointer.JsonPointerDecodeJson
 
-import scala.annotation.tailrec
 import scala.collection.immutable.Stack
-import scala.util.Try
-import scala.util.control.{NonFatal, Exception}
+import scala.io.Source
+import scala.util.control.NonFatal
 import scalaz._
 
 
@@ -44,7 +43,7 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
    * @param reference reference with a pointer
    * @return
    */
-  def resolveReference(reference: URI)( implicit rootURI: URI, loader: URI => String \/ Json): String \/ Json = {
+  def resolveReference(reference: URI)(implicit rootURI: URI, loader: URI => String \/ Json): String \/ Json = {
     if (inprogress.contains(reference))
       -\/(s"found cyclic reference: $reference")
     else {
@@ -77,7 +76,7 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
 
 object ReferenceResolver {
 
-  import Argonaut._
+  import argonaut.Argonaut._
 
   val local: ReferenceResolver = new ReferenceResolver()
 
@@ -86,6 +85,14 @@ object ReferenceResolver {
   def apply(file: File): String \/ Json =
     scala.io.Source.fromFile(file).mkString.parse.flatMap(root => local.resolvePointer(file.toURI)(root, file.toURI))
 
+  def apply(uri: URI): String \/ Json =
+    toSource(uri).mkString.parse.flatMap(root => local.resolvePointer(uri)(root, uri))
+
   def apply(json: String): String \/ Json = json.parse.flatMap(apply)
 
+  private def toSource(uri: URI): Source = try {
+    scala.io.Source.fromURI(uri)
+  } catch {
+    case NonFatal(e) => scala.io.Source.fromURL(uri.toURL)
+  }
 }
