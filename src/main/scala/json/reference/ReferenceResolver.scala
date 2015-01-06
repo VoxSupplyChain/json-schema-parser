@@ -17,7 +17,7 @@ import scalaz._
  * Implementation JSON-Reference resolver as described in http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
  * @param inprogress current resolution stack, to help tracking cyclic dependencies
  */
-class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
+case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaultLoader: Option[URI => String \/ Json] = None) {
 
   def relative(parent: URI, sub: URI) = {
     val resolved = parent.resolve(sub)
@@ -33,7 +33,7 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
         val resolved = if (uri.toString.startsWith("#"))
           resolvePointer(uri)(root, rootURI)
         else
-          resolveReference(relative(rootURI, uri))(rootURI, fromURI)
+          resolveReference(relative(rootURI, uri))(rootURI, defaultLoader.getOrElse(ReferenceResolver.fromURI))
 
         resolved leftMap (cause => s"reference $uri not found: $cause")
     }
@@ -57,13 +57,18 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
         root =>
           JsonPointerDecodeJson(reference).flatMap(d => d(root.hcursor).toDisjunction.leftMap(_.toString())) flatMap {
             pointedNode =>
-              val nestedResolver = new ReferenceResolver(inprogress.push(reference))
+              val nestedResolver = this.copy(inprogress.push(reference))
               nestedResolver.resolve(pointedNode)(root, rootURI)
           }
 
       }
     }
   }
+
+}
+
+
+object ReferenceResolver {
 
   def fromURI(reference: URI): String \/ Json = {
     try {
@@ -76,10 +81,6 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
     }
   }
 
-}
-
-
-object ReferenceResolver {
 
   import argonaut.Argonaut._
 
