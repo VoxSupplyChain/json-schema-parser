@@ -4,7 +4,7 @@ import java.io.{File, FilenameFilter}
 import java.net.URI
 
 import org.scalacheck.Gen
-import org.scalatest.matchers.Matcher
+import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
