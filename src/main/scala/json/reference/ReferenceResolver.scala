@@ -4,7 +4,7 @@ import java.io.File
 import java.net.URI
 
 import argonaut.Argonaut._
-import argonaut.{Argonaut, Json}
+import argonaut.Json
 import json.pointer.JsonPointerDecodeJson
 
 import scala.collection.immutable.Stack
@@ -25,15 +25,20 @@ class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI(""))) {
   }
 
 
-  private def resolve(json: Json)(implicit root: Json, rootURI: URI): String \/ Json = ReferenceTraverser(json.hcursor) {
-    uri =>
-      val resolved = if (uri.toString.startsWith("#"))
-        resolvePointer(uri)(root, rootURI)
-      else
-        resolveReference(relative(rootURI, uri))(rootURI, fromURI)
+  private def resolve(json: Json)(implicit root: Json, rootURI: URI): String \/ Json = new ReferenceTraverser {
 
-      resolved leftMap (cause => s"reference $uri not found: $cause")
-  }
+    override def resolve: (URI) => \/[String, Json] = {
+      uri =>
+
+        val resolved = if (uri.toString.startsWith("#"))
+          resolvePointer(uri)(root, rootURI)
+        else
+          resolveReference(relative(rootURI, uri))(rootURI, fromURI)
+
+        resolved leftMap (cause => s"reference $uri not found: $cause")
+    }
+
+  }.traverse(json.hcursor)
 
   def resolvePointer(reference: URI)(implicit root: Json, rootURI: URI): String \/ Json = {
     resolveReference(reference)(rootURI, _ => \/-(root))

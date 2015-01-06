@@ -1,37 +1,82 @@
 package json.reference
 
-import java.net.{URISyntaxException, URI}
+import java.net.{URI, URISyntaxException}
 
 import argonaut.Argonaut._
-import argonaut.{HCursor, ACursor, Json}
+import argonaut.{ACursor, HCursor, Json}
 
 import scala.util.control.Exception
 import scalaz._
-import scala.collection.immutable.Stack
 
 trait ReferenceTraverser {
 
-  sealed trait TraverseOp
+  def resolve: URI => String \/ Json
 
-  object TCheck extends TraverseOp
+  private sealed trait TraverseOp {
+    def next(hc: HCursor): (TraverseState, ACursor)
+  }
 
-  object TUp extends TraverseOp
+  private sealed case class TCheck(tail: TraverseOp) extends TraverseOp {
+    override def next(hc: HCursor): (TraverseState, ACursor) = jsonReference(hc.focus) match {
+      case Some(\/-(ref)) =>
+        resolve(ref).fold(
+          f => (TResult(-\/(f)), hc.acursor),
+          resolvedNode =>
+            (tail, hc.set(resolvedNode).acursor)
+        )
+      case Some(-\/(err)) =>
+        (TResult(-\/(err)), hc.acursor)
+      case None =>
+        hc.focus.arrayOrObject(
+          (tail, hc.acursor),
+          array =>
+            (TArray(array.length - 1, tail), hc.acursor),
+          obj =>
+            (TObject(obj.fieldSet, tail), hc.acursor)
+        )
+    }
+  }
 
-  sealed case class TObject(fields: Set[JsonField]) extends TraverseOp
+  private sealed case class TUp(tail: TraverseOp) extends TraverseOp {
+    override def next(hc: HCursor): (TraverseState, ACursor) = (tail, hc.up)
+  }
 
-  sealed case class TArray(lastIndex: Int) extends TraverseOp
+  private sealed case class TObject(fields: Set[JsonField], tail: TraverseOp) extends TraverseOp {
+    override def next(hc: HCursor): (TraverseState, ACursor) = if (fields.isEmpty)
+      (tail, hc.acursor)
+    else
+      (
+        TCheck(
+          TUp(
+            this.copy(fields.tail)
+          )
+        ), hc.downField(fields.head)
+        )
+  }
 
-  type TraverseResult = String \/ Json
-  type TraverseStack = Stack[TraverseOp]
-  type TraverseState = TraverseResult \/ TraverseStack
+  private sealed case class TArray(index: Int, tail: TraverseOp) extends TraverseOp {
+    override def next(hc: HCursor): (TraverseState, ACursor) =
+      if (index >= 0)
+        (
+          TCheck(
+            TUp(
+              this.copy(index - 1)
+            )
+          ), hc.downN(index)
+          )
+      else
+        (tail, hc.acursor)
+  }
 
-  def initialState: TraverseState = \/-(Stack(TCheck))
+  private sealed case class TResult(result: String \/ Json) extends TraverseOp {
+    override def next(hc: HCursor): (TraverseState, ACursor) = (this, hc.failedACursor)
+  }
 
-  def success(hc: HCursor): (TraverseState, ACursor) = (-\/(\/-(hc.focus)), hc.failedACursor)
+  private object TReturn extends TraverseOp {
+    override def next(hc: HCursor): (TraverseState, ACursor) = (TResult(\/-(hc.focus)), hc.acursor)
+  }
 
-  def failure(err: String, hc: HCursor): (TraverseState, ACursor) = (-\/(-\/(err)), hc.failedACursor)
-
-  private def withStack(tuple: (TraverseStack, ACursor)): (TraverseState, ACursor) = (\/-(tuple._1), tuple._2)
+  private type TraverseState = TraverseOp
 
   private def parseUri(s: String): String \/ URI = \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s))).leftMap(_.getMessage)
 
@@ -41,66 +86,14 @@ trait ReferenceTraverser {
       str <- ref.string
     } yield parseUri(str)
 
-  def treeTraverser(resolve: URI => String \/ Json)(state: TraverseState, hc: HCursor): (TraverseState, ACursor) = {
-    state.fold(
-      s => (state, hc.failedACursor),
-      fs => {
-        fs.headOption map {
-          case TCheck =>
-            jsonReference(hc.focus) match {
-              case Some(\/-(ref)) =>
-                resolve(ref).fold(
-                  f => failure(f, hc),
-                  resolvedNode =>
-                    withStack {
-                      (fs.tail, hc.set(resolvedNode).acursor)
-                    }
-                )
-              case Some(-\/(err)) =>
-                failure(err, hc)
-              case None =>
-                withStack {
-                  hc.focus.arrayOrObject(
-                    (fs.tail, hc.acursor),
-                    array =>
-                      (fs.tail.push(TArray(array.length - 1)), hc.acursor),
-                    obj =>
-                      (fs.tail.push(TObject(obj.fieldSet)), hc.acursor)
-                  )
-                }
-            }
-          case TArray(index) =>
-            withStack {
-              if (index >= 0) {
-                (fs.tail.push(TArray(index - 1), TUp, TCheck), hc.downN(index))
-              }
-              else
-                (fs.tail, hc.acursor)
-            }
-          case TObject(fields) =>
-            withStack {
-              if (fields.isEmpty)
-                (fs.tail, hc.acursor)
-              else {
-                (fs.tail.push(TObject(fields.tail), TUp, TCheck), hc.downField(fields.head))
-              }
-            }
-          case TUp =>
-            withStack {
-              (fs.tail, hc.up)
-            }
-        } getOrElse {
-          success(hc)
-        }
-      }
-    )
+  private def treeTraverser(state: TraverseState, hc: HCursor): (TraverseState, ACursor) = state.next(hc)
+
+  def traverse(hcursor: HCursor): String \/ Json = {
+    val init: TraverseOp = TCheck(TReturn)
+    hcursor.traverseUntilDone(init)(treeTraverser) match {
+      case TResult(result) => result
+      case _ => -\/("json traversal is incomplete")
+    }
   }
 
-}
-
-object ReferenceTraverser extends ReferenceTraverser {
-  def apply(hcursor: HCursor)(resolve: URI => String \/ Json): String \/ Json = hcursor.traverseUntilDone(initialState)(treeTraverser(resolve)) match {
-    case -\/(v) => v
-    case \/-(s) => -\/("json traversal is incomplete")
-  }
 }
