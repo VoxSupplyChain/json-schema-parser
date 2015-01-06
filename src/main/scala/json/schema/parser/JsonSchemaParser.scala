@@ -8,6 +8,7 @@ import argonaut.{DecodeJson, Json}
 import json.reference.ReferenceResolver
 import json.schema.scope.{ExpandReferences, ScopeDiscovery}
 
+import scala.util.control.NonFatal
 import scalaz.Scalaz._
 import scalaz._
 
@@ -41,7 +42,11 @@ object JsonSource {
   implicit val uriRef: JsonSource[URI] = new JsonSource[URI] {
     override def uri(t: URI): URI = t
 
-    override def json(t: URI): String \/ Json = scala.io.Source.fromURI(t).mkString.parse
+    override def json(t: URI): String \/ Json = try {
+      scala.io.Source.fromURI(t).mkString.parse
+    } catch {
+      case NonFatal(e) => scala.io.Source.fromURL(t.toURL).mkString.parse
+    }
   }
 
 }
