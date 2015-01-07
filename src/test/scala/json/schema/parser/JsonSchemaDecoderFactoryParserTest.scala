@@ -226,37 +226,37 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
     r.map(_.definitions("schema2").items.value.head.id) shouldBe Success(new URI("http://my.site/schema1#"))
   }
 
-  implicit val remoteCyclicSchemas: Gen[URI] = Gen.oneOf(List(new URI("http://swagger.io/v2/schema.json")))
+  implicit val remoteCyclicSchemas = List(new URI("http://swagger.io/v2/schema.json"))
 
-  implicit val validSchemas: Gen[File] = Gen.oneOf(new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
+  implicit val validSchemas = new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
     override def accept(dir: File, name: String): Boolean = name endsWith ".json"
-  }).toList)
+  }).toList
 
-  implicit val cyclicSchemas: Gen[File] = Gen.oneOf(new File("src/test/resources/json/schema/parser/invalid").listFiles(new FilenameFilter {
+  implicit val cyclicSchemas = new File("src/test/resources/json/schema/parser/invalid").listFiles(new FilenameFilter {
     override def accept(dir: File, name: String): Boolean = name endsWith ".json"
-  }).toList)
+  }).toList
 
   it should "parse all valid schemas" in {
-    forAll(validSchemas) {
+    validSchemas.map {
       f: File =>
-        JsonSchemaParser.parse(f).validation shouldBe a[Success[_, _]]
-    }
+        JsonSchemaParser.parse(f).validation.isFailure
+    }.contains(true) shouldBe false
   }
 
 
   it should "fail to parse schemas with cyclic reference" in {
-    forAll(cyclicSchemas) {
+    cyclicSchemas.map {
       f: File =>
-        JsonSchemaParser.parse(f).validation should containFailure("cyclic reference")
-    }
+        JsonSchemaParser.parse(f).validation
+    }.find(_.isFailure).get should containFailure("cyclic reference")
   }
 
 
   it should "fail to parse remote schemas with cyclic reference" in {
-    forAll(remoteCyclicSchemas) {
+    remoteCyclicSchemas.map {
       f: URI =>
-        JsonSchemaParser.parse(f).validation should containFailure("cyclic reference")
-    }
+        JsonSchemaParser.parse(f).validation
+    }.find(_.isFailure).get should containFailure("cyclic reference")
   }
 
 
