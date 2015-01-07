@@ -6,6 +6,7 @@ import java.net.URI
 import argonaut.Argonaut._
 import argonaut.Json
 import json.pointer.JsonPointerDecodeJson
+import json.source.JsonSource
 
 import scala.collection.immutable.Stack
 import scala.io.Source
@@ -17,7 +18,7 @@ import scalaz._
  * Implementation JSON-Reference resolver as described in http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
  * @param inprogress current resolution stack, to help tracking cyclic dependencies
  */
-case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaultLoader: Option[URI => String \/ Json] = None) {
+case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaultLoader: URI => String \/ Json ) {
 
   def relative(parent: URI, sub: URI) = {
     val resolved = parent.resolve(sub)
@@ -33,7 +34,7 @@ case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaul
         val resolved = if (uri.toString.startsWith("#"))
           resolvePointer(uri)(root, rootURI)
         else
-          resolveReference(relative(rootURI, uri))(rootURI, defaultLoader.getOrElse(ReferenceResolver.fromURI))
+          resolveReference(relative(rootURI, uri))(rootURI, defaultLoader)
 
         resolved leftMap (cause => s"reference $uri not found: $cause")
     }
@@ -70,35 +71,15 @@ case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaul
 
 object ReferenceResolver {
 
-  def fromURI(reference: URI): String \/ Json = {
-    try {
-      import scala.io.Source
-      val html = if (reference.isAbsolute) Source.fromURL(reference.toURL) else Source.fromURI(reference)
-      val s = html.mkString
-      s.parse
-    } catch {
-      case NonFatal(e) => -\/(e.getMessage)
-    }
-  }
+  val local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
+    uri: URI =>
+      JsonSource.uri.json(uri)
+  })
 
+  def apply[T](addr: T)(implicit src:JsonSource[T]): String \/ Json =
+    src.json(addr).flatMap(root => {
+      val uri = src.uri(addr)
+      local.resolvePointer(uri)(root, uri)
+    })
 
-  import argonaut.Argonaut._
-
-  val local: ReferenceResolver = new ReferenceResolver()
-
-  def apply(root: Json): String \/ Json = local.resolvePointer(new URI("#"))(root, new URI(""))
-
-  def apply(file: File): String \/ Json =
-    scala.io.Source.fromFile(file).mkString.parse.flatMap(root => local.resolvePointer(file.toURI)(root, file.toURI))
-
-  def apply(uri: URI): String \/ Json =
-    toSource(uri).mkString.parse.flatMap(root => local.resolvePointer(uri)(root, uri))
-
-  def apply(json: String): String \/ Json = json.parse.flatMap(apply)
-
-  private def toSource(uri: URI): Source = try {
-    scala.io.Source.fromURI(uri)
-  } catch {
-    case NonFatal(e) => scala.io.Source.fromURL(uri.toURL)
-  }
 }

@@ -6,6 +6,7 @@ import argonaut.Argonaut._
 import argonaut.{DecodeJson, Json}
 import json.reference.ReferenceResolver
 import json.schema.scope.{ExpandReferences, ScopeDiscovery}
+import json.source.JsonSource
 
 import scalaz.Scalaz._
 import scalaz._
@@ -17,7 +18,7 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
   def read[T: JsonSource](addr: T)(implicit source: JsonSource[T]): String \/ Json = source.json(addr).flatMap {
     json =>
 
-      val cachingUriSource = JsonSource.cachedSource(implicitly[JsonSource[URI]])
+      val cachingUriSource = JsonSource.cached(implicitly[JsonSource[URI]])
 
       val rootUri: URI = source.uri(addr)
       for {
@@ -26,7 +27,7 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
         local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
           reference: URI =>
             idMap.get(reference).fold[String \/ Json](-\/(s"no scope $reference"))(j => \/-(j)) orElse cachingUriSource.json(reference)
-        }.some)
+        })
         resolved <- local.resolvePointer(rootUri)(expandedJson, rootUri)
       } yield resolved
   }
