@@ -26,7 +26,9 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
         idMap <- ScopeDiscovery.scopes(rootUri, expandedJson.hcursor)
         local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
           reference: URI =>
-            idMap.get(reference).fold[String \/ Json](-\/(s"no scope $reference"))(j => \/-(j)) orElse cachingUriSource.json(reference)
+            val referenceRootDoc = reference.resolve("#")
+            idMap.get(reference).orElse(idMap.get(referenceRootDoc))
+              .fold[String \/ Json](-\/(s"no scope $reference"))(j => \/-(j)) orElse cachingUriSource.json(reference)
         })
         resolved <- local.resolvePointer(rootUri)(expandedJson, rootUri)
       } yield resolved

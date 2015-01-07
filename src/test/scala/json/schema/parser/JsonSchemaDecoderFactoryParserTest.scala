@@ -224,6 +224,29 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
     r.map(_.id) shouldBe Success(new URI("http://my.site/myschema#"))
     r.map(_.definitions("schema1").id) shouldBe Success(new URI("http://my.site/schema1#"))
     r.map(_.definitions("schema2").items.value.head.id) shouldBe Success(new URI("http://my.site/schema1#"))
+
+  }
+
+  it should "decodes schema references to the same instance" in {
+    val r = parse(
+      """
+        |{
+        |    "id": "http://my.site/myschema#",
+        |    "definitions": {
+        |        "schema1": {
+        |            "type": "integer"
+        |        },
+        |        "schema2": {
+        |            "type": "array",
+        |            "items": { "$ref": "#/definitions/schema1" }
+        |        }
+        |    }
+        |}
+        | """.stripMargin)
+
+    r.map(_.id) shouldBe Success(new URI("http://my.site/myschema#"))
+    r.map(_.definitions("schema2").items.value.head.types.head) shouldBe Success(SimpleType.integer)
+
   }
 
   implicit val remoteCyclicSchemas = List(new URI("http://swagger.io/v2/schema.json"))
