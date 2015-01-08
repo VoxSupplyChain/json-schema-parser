@@ -1,16 +1,12 @@
 package json.reference
 
-import java.io.File
 import java.net.URI
 
-import argonaut.Argonaut._
 import argonaut.Json
 import json.pointer.JsonPointerDecodeJson
 import json.source.JsonSource
 
 import scala.collection.immutable.Stack
-import scala.io.Source
-import scala.util.control.NonFatal
 import scalaz._
 
 
@@ -18,7 +14,7 @@ import scalaz._
  * Implementation JSON-Reference resolver as described in http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
  * @param inprogress current resolution stack, to help tracking cyclic dependencies
  */
-case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaultLoader: URI => String \/ Json ) {
+case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaultLoader: Loader ) {
 
   def relative(parent: URI, sub: URI) = {
     val resolved = parent.resolve(sub)
@@ -42,21 +38,21 @@ case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaul
   }.traverse(json.hcursor)
 
   def resolvePointer(reference: URI)(implicit root: Json, rootURI: URI): String \/ Json = {
-    resolveReference(reference)(rootURI, _ => \/-(root))
+    resolveReference(reference)(rootURI, uri => \/-((root, uri)))
   }
 
   /**
    * @param reference reference with a pointer
    * @return
    */
-  def resolveReference(reference: URI)(implicit rootURI: URI, loader: URI => String \/ Json): String \/ Json = {
+  def resolveReference(reference: URI)(implicit rootURI: URI, loader: Loader): String \/ Json = {
     if (inprogress.contains(reference))
       -\/(s"found cyclic reference: $reference")
     else {
       // the refered Json document must be resolved as well
       loader(reference).flatMap {
-        root =>
-          JsonPointerDecodeJson(reference).flatMap(d => d(root.hcursor).toDisjunction.leftMap(_.toString())) flatMap {
+        case (root, updatedReference) =>
+          JsonPointerDecodeJson(updatedReference).flatMap(d => d(root.hcursor).toDisjunction.leftMap(_.toString())) flatMap {
             pointedNode =>
               val nestedResolver = this.copy(inprogress.push(reference))
               nestedResolver.resolve(pointedNode)(root, rootURI)
@@ -71,9 +67,10 @@ case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaul
 
 object ReferenceResolver {
 
+
   val local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
     uri: URI =>
-      JsonSource.uri.json(uri)
+      JsonSource.uri.json(uri).map( (_, uri))
   })
 
   def apply[T](addr: T)(implicit src:JsonSource[T]): String \/ Json =

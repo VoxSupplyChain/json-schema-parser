@@ -6,7 +6,7 @@ import java.net.URI
 import org.scalacheck.Gen
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{Inspectors, FlatSpec, Matchers}
 
 import scalaz.{Failure, Success, Validation}
 
@@ -25,7 +25,7 @@ trait ScalazMatchers {
 
 }
 
-class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
+class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with ScalazMatchers {
 
 
   def parse(s: String) = JsonSchemaParser.parse(s).validation
@@ -249,6 +249,29 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
 
   }
 
+  it should "decodes pointer references to overriden scope" in {
+    val r =     parse(
+      """
+        |{
+        | "id": "product",
+        |"type":"object",
+        |"properties": {
+        |"a":{"$ref": "#/definitions/typea"}
+        |},
+        |"definitions":{
+        | "typea":{
+        | "id":"#/definitions/typea",
+        | "type":"string"
+        | }
+        |}
+        |}
+      """.stripMargin)
+
+    r.map(_.id) shouldBe Success(new URI("product#"))
+    r.map(_.properties.value("a").schema.types) shouldBe Success(Set(SimpleType.string))
+
+  }
+
   implicit val remoteCyclicSchemas = List(new URI("http://swagger.io/v2/schema.json"))
 
   implicit val validSchemas = new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
@@ -260,10 +283,7 @@ class JsonSchemaDecoderFactoryParserTest extends FlatSpec with GeneratorDrivenPr
   }).toList
 
   it should "parse all valid schemas" in {
-    validSchemas.map {
-      f: File =>
-        JsonSchemaParser.parse(f).validation.isFailure
-    }.contains(true) shouldBe false
+    forAll (validSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
   }
 
 
