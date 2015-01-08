@@ -8,10 +8,10 @@ import argonaut.{DecodeJson, DecodeResult, HCursor, Json}
 import scala.util.matching.Regex
 
 
-class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: DecodeJson[N])  {
+class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]) {
 
   type Schema = SchemaDocument[N]
-  
+
   import json.schema.parser.JsonSchemaDecoderFactory._
   import json.schema.parser.SchemaDecoders._
 
@@ -39,7 +39,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
   }
 
 
-  def apply(parentId: URI, rootSchema:Boolean): DecodeJson[Schema] = DecodeJson { c =>
+  def apply(parentId: URI, rootSchema: Boolean): DecodeJson[Schema] = DecodeJson { c =>
 
     implicit val OptionalNumberDecoder = OptionDecodeJson(numberDecoder)
 
@@ -52,8 +52,8 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       format <- c.get[Option[String]]("format")
 
       // sub documents with reference to this document id
-      resolvedId: URI = if (rootSchema) id.getOrElse(parentId) else id.map( resolve(parentId, _)).getOrElse(parentId)
-      nestedDocumentDecoder = apply(resolvedId, rootSchema=false)
+      resolvedId: URI = if (rootSchema) id.getOrElse(parentId) else id.map(resolve(parentId, _)).getOrElse(parentId)
+      nestedDocumentDecoder = apply(resolvedId, rootSchema = false)
 
       // handy methods to decode common types
       listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
@@ -101,10 +101,10 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
 
     } yield {
       val requiredField = requiredPropNames.getOrElse(Set.empty)
-      new SchemaDocument(
+      SchemaDocument(
+        id,
         resolvedId,
-        schema, title,
-        description, format,
+        schema,
         multipleOf, RangeConstrain[Exclusivity[N]](max, min),
         stringConstrain.getOrElse(noIntConstain), pattern,
         additionalItems, ConstrainedList(items.getOrElse(List.empty), itemsConstrain.getOrElse(noIntConstain)), uniqueItems.getOrElse(false),
@@ -113,12 +113,17 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
           properties.getOrElse(Map.empty).map((kv) => kv._1 -> Property(requiredField.contains(kv._1), kv._2)).toMap,
           propsConstrain.getOrElse(noIntConstain)),
         patternProps.getOrElse(Map.empty).map((kv) => kv._1.r -> kv._2).toMap,
-        definitions.getOrElse(Map.empty),
-        dependencies.getOrElse(Map.empty),
-        enums.getOrElse(Set.empty),
-        types.getOrElse(Set.empty),
-        anyOf.getOrElse(List.empty), allOf.getOrElse(List.empty), oneOf.getOrElse(List.empty),
-        not,
+        SchemaCommon(
+          title,
+          description,
+          format,
+          definitions.getOrElse(Map.empty),
+          dependencies.getOrElse(Map.empty),
+          enums.getOrElse(Set.empty),
+          types.getOrElse(Set.empty),
+          anyOf.getOrElse(List.empty), allOf.getOrElse(List.empty), oneOf.getOrElse(List.empty),
+          not
+        ),
         nested
       )
     }
@@ -150,5 +155,5 @@ object JsonSchemaDecoderFactory {
 
   private val schemaVersions = Set(new URI("http://json-schema.org/schema#"), new URI("http://json-schema.org/draft-04/schema#"))
 
-  def apply[N](uri: URI = new URI("#"))(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(uri, rootSchema=true)
+  def apply[N](uri: URI = new URI("#"))(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(uri, rootSchema = true)
 }

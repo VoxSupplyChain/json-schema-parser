@@ -44,38 +44,48 @@ package object parser {
 
   case class SchemaReference(uri: URI)
 
-  class SchemaDocument[N](
-                              val id: URI,
-                              val schema: Option[URI],
-                              val title: Option[String],
-                              val description: Option[String],
-                              val format: Option[String],
-                              // number
-                              val multipleOf: Option[N],
-                              val valueConstraint: RangeConstrain[Exclusivity[N]],
-                              // string
-                              val stringConstraint: RangeConstrain[Int],
-                              val pattern: Option[Regex],
-                              // array
-                              val additionalItems: Option[Either[Boolean, SchemaDocument[N]]],
-                              val items: ConstrainedList[SchemaDocument[N]],
-                              val uniqueItems: Boolean,
-                              // object
-                              val additionalProperties: Option[Either[Boolean, SchemaDocument[N]]],
-                              val properties: ConstrainedMap[Property[N]],
-                              val patternProperties: Map[Regex, SchemaDocument[N]],
-                              // common
-                              val definitions: Map[String, SchemaDocument[N]],
-                              val dependencies: Map[String, Either[SchemaDocument[N], Set[String]]],
-                              val enums: Set[Json],
-                              val types: Set[SimpleType.SimpleType],
-                              val anyOf: List[SchemaDocument[N]],
-                              val allOf: List[SchemaDocument[N]],
-                              val oneOf: List[SchemaDocument[N]],
-                              val not: Option[SchemaDocument[N]],
-                              val nestedSchemas: Map[String, SchemaDocument[N]]
-                              ) {
-    override def toString: String = s"Schema[$id]"
+  case class SchemaCommon[N](
+                              title: Option[String],
+                              description: Option[String],
+                              format: Option[String],
+
+                           definitions: Map[String, SchemaDocument[N]],
+                           dependencies: Map[String, Either[SchemaDocument[N], Set[String]]],
+                           enums: Set[Json],
+                           types: Set[SimpleType.SimpleType],
+                           anyOf: List[SchemaDocument[N]],
+                           allOf: List[SchemaDocument[N]],
+                           oneOf: List[SchemaDocument[N]],
+                           not: Option[SchemaDocument[N]]
+                           )
+
+  case class SchemaDocument[N](
+                                id: Option[URI],
+                                scope: URI,
+                                schema: Option[URI],
+                                // number
+                                multipleOf: Option[N],
+                                valueConstraint: RangeConstrain[Exclusivity[N]],
+                                // string
+                                stringConstraint: RangeConstrain[Int],
+                                pattern: Option[Regex],
+                                // array
+                                additionalItems: Option[Either[Boolean, SchemaDocument[N]]],
+                                items: ConstrainedList[SchemaDocument[N]],
+                                uniqueItems: Boolean,
+                                // object
+                                additionalProperties: Option[Either[Boolean, SchemaDocument[N]]],
+                                properties: ConstrainedMap[Property[N]],
+                                patternProperties: Map[Regex, SchemaDocument[N]],
+                                // common
+                                common: SchemaCommon[N],
+                                nestedSchemas: Map[String, SchemaDocument[N]]
+
+                                ) {
+    override def toString: String = {
+      val props = properties.value.keys
+      s"Schema[$id in $scope, $props]"
+    }
   }
 
 

@@ -46,14 +46,14 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |{
         |"title":"root"
         |}
-      """.stripMargin).map { d: SchemaDocument[Double] => d.title} shouldBe Success(Some("root"))
+      """.stripMargin).map { d: SchemaDocument[Double] => d.common.title} shouldBe Success(Some("root"))
 
     parse(
       """
         |{
         |"title":10
         |}
-      """.stripMargin).map { d: SchemaDocument[Double] => d.title} shouldBe Failure("String: [--\\(title)]")
+      """.stripMargin).map { d: SchemaDocument[Double] => d.common.title} shouldBe Failure("String: [--\\(title)]")
 
   }
 
@@ -72,9 +72,9 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |}
       """.stripMargin)
 
-    result.map(_.title) shouldBe Success(Some("root"))
-    result.map(_.nestedSchemas("otherSchema").title) shouldBe Success(Some("nested"))
-    result.map(_.nestedSchemas("otherSchema").nestedSchemas("anotherSchema").title) shouldBe Success(Some("alsoNested"))
+    result.map(_.common.title) shouldBe Success(Some("root"))
+    result.map(_.nestedSchemas("otherSchema").common.title) shouldBe Success(Some("nested"))
+    result.map(_.nestedSchemas("otherSchema").nestedSchemas("anotherSchema").common.title) shouldBe Success(Some("alsoNested"))
 
 
   }
@@ -114,14 +114,14 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |{
         |    "id":"http://x.y.z/rootschema.json#"
         |}
-      """.stripMargin).map(_.id) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
+      """.stripMargin).map(_.scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
 
     parse(
       """
         |{
         |    "id":"#nested"
         |}
-      """.stripMargin).map(_.id) shouldBe Success(new URI("#nested"))
+      """.stripMargin).map(_.scope) shouldBe Success(new URI("#nested"))
 
     parse(
       """
@@ -161,12 +161,12 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |}
       """.stripMargin)
 
-    r.map(_.id) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
-    r.map(_.nestedSchemas("schema1").id) shouldBe Success(new URI("http://x.y.z/rootschema.json#foo"))
-    r.map(_.nestedSchemas("schema2").id) shouldBe Success(new URI("http://x.y.z/otherschema.json#"))
-    r.map(_.nestedSchemas("schema2").nestedSchemas("nested").id) shouldBe Success(new URI("http://x.y.z/otherschema.json#bar"))
-    r.map(_.nestedSchemas("schema2").nestedSchemas("alsonested").id) shouldBe Success(new URI("http://x.y.z/t/inner.json#a"))
-    r.map(_.nestedSchemas("schema3").id) shouldBe Success(new URI("some://where.else/completely#"))
+    r.map(_.scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
+    r.map(_.nestedSchemas("schema1").scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#foo"))
+    r.map(_.nestedSchemas("schema2").scope) shouldBe Success(new URI("http://x.y.z/otherschema.json#"))
+    r.map(_.nestedSchemas("schema2").nestedSchemas("nested").scope) shouldBe Success(new URI("http://x.y.z/otherschema.json#bar"))
+    r.map(_.nestedSchemas("schema2").nestedSchemas("alsonested").scope) shouldBe Success(new URI("http://x.y.z/t/inner.json#a"))
+    r.map(_.nestedSchemas("schema3").scope) shouldBe Success(new URI("some://where.else/completely#"))
   }
 
   it should "resolve to base schema uri if no id in scope" in {
@@ -181,8 +181,8 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |}
       """.stripMargin)
 
-    r.map(_.id) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
-    r.map(_.nestedSchemas("schema4").id) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
+    r.map(_.scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
+    r.map(_.nestedSchemas("schema4").scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
   }
 
 
@@ -198,8 +198,8 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |}
       """.stripMargin)
 
-    r.map(_.id) shouldBe Success(new URI("#"))
-    r.map(_.nestedSchemas("schema4").id) shouldBe Success(new URI("#bar"))
+    r.map(_.scope) shouldBe Success(new URI("#"))
+    r.map(_.nestedSchemas("schema4").scope) shouldBe Success(new URI("#bar"))
   }
 
   it should "decodes schema references" in {
@@ -221,9 +221,9 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |}
         | """.stripMargin)
 
-    r.map(_.id) shouldBe Success(new URI("http://my.site/myschema#"))
-    r.map(_.definitions("schema1").id) shouldBe Success(new URI("http://my.site/schema1#"))
-    r.map(_.definitions("schema2").items.value.head.id) shouldBe Success(new URI("http://my.site/schema1#"))
+    r.map(_.scope) shouldBe Success(new URI("http://my.site/myschema#"))
+    r.map(_.common.definitions("schema1").scope) shouldBe Success(new URI("http://my.site/schema1#"))
+    r.map(_.common.definitions("schema2").items.value.head.scope) shouldBe Success(new URI("http://my.site/schema1#"))
 
   }
 
@@ -244,8 +244,8 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |}
         | """.stripMargin)
 
-    r.map(_.id) shouldBe Success(new URI("http://my.site/myschema#"))
-    r.map(_.definitions("schema2").items.value.head.types.head) shouldBe Success(SimpleType.integer)
+    r.map(_.scope) shouldBe Success(new URI("http://my.site/myschema#"))
+    r.map(_.common.definitions("schema2").items.value.head.common.types.head) shouldBe Success(SimpleType.integer)
 
   }
 
@@ -267,8 +267,8 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |}
       """.stripMargin)
 
-    r.map(_.id) shouldBe Success(new URI("product#"))
-    r.map(_.properties.value("a").schema.types) shouldBe Success(Set(SimpleType.string))
+    r.map(_.scope) shouldBe Success(new URI("product#"))
+    r.map(_.properties.value("a").schema.common.types) shouldBe Success(Set(SimpleType.string))
 
   }
 
