@@ -49,15 +49,14 @@ package object parser {
                               description: Option[String],
                               format: Option[String],
 
-                           definitions: Map[String, SchemaDocument[N]],
-                           dependencies: Map[String, Either[SchemaDocument[N], Set[String]]],
-                           enums: Set[Json],
-                           types: Set[SimpleType.SimpleType],
-                           anyOf: List[SchemaDocument[N]],
-                           allOf: List[SchemaDocument[N]],
-                           oneOf: List[SchemaDocument[N]],
-                           not: Option[SchemaDocument[N]]
-                           )
+                              definitions: Map[String, SchemaDocument[N]],
+                              dependencies: Map[String, Either[SchemaDocument[N], Set[String]]],
+                              types: Set[SimpleType.SimpleType],
+                              anyOf: List[SchemaDocument[N]],
+                              allOf: List[SchemaDocument[N]],
+                              oneOf: List[SchemaDocument[N]],
+                              not: Option[SchemaDocument[N]]
+                              )
 
   case class SchemaDocument[N](
                                 id: Option[URI],
@@ -74,9 +73,11 @@ package object parser {
                                 items: ConstrainedList[SchemaDocument[N]],
                                 uniqueItems: Boolean,
                                 // object
-                                additionalProperties: Option[Either[Boolean, SchemaDocument[N]]],
+                                additionalProperties: Option[SchemaDocument[N]],
                                 properties: ConstrainedMap[Property[N]],
                                 patternProperties: Map[Regex, SchemaDocument[N]],
+                                // enumeration
+                                enums: Set[Json],
                                 // common
                                 common: SchemaCommon[N],
                                 nestedSchemas: Map[String, SchemaDocument[N]]
@@ -84,8 +85,21 @@ package object parser {
                                 ) {
     override def toString: String = {
       val props = properties.value.keys
-      s"Schema[$id in $scope, $props]"
+      val key = id.getOrElse(scope)
+      s"JsoneSchema($key -> $props)"
     }
+  }
+
+  object SchemaDocument {
+    def empty[N](scope: URI)(implicit n: Numeric[N]) = {
+      val noConstraintE: RangeConstrain[Exclusivity[N]] = RangeConstrain(None, None)
+      val noConstraint: RangeConstrain[Int] = RangeConstrain(None, None)
+      SchemaDocument(
+        None, scope, None, None, noConstraintE, noConstraint, None, None, ConstrainedList[SchemaDocument[N]](Nil, noConstraint), uniqueItems = false, None, ConstrainedMap[Property[N]](Map.empty, noConstraint), Map.empty, Set.empty,
+        SchemaCommon(None, None, None, Map.empty, Map.empty, Set.empty, Nil, Nil, Nil, None), Map.empty
+      )
+    }
+
   }
 
 

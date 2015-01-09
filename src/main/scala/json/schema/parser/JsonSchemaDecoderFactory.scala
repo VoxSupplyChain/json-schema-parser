@@ -52,8 +52,8 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       format <- c.get[Option[String]]("format")
 
       // sub documents with reference to this document id
-      resolvedId: URI = if (rootSchema) id.getOrElse(parentId) else id.map(resolve(parentId, _)).getOrElse(parentId)
-      nestedDocumentDecoder = apply(resolvedId, rootSchema = false)
+      scope: URI = if (rootSchema) id.getOrElse(parentId) else id.map(resolve(parentId, _)).getOrElse(parentId)
+      nestedDocumentDecoder = apply(scope, rootSchema = false)
 
       // handy methods to decode common types
       listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
@@ -103,23 +103,23 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       val requiredField = requiredPropNames.getOrElse(Set.empty)
       SchemaDocument(
         id,
-        resolvedId,
+        scope,
         schema,
         multipleOf, RangeConstrain[Exclusivity[N]](max, min),
         stringConstrain.getOrElse(noIntConstain), pattern,
         additionalItems, ConstrainedList(items.getOrElse(List.empty), itemsConstrain.getOrElse(noIntConstain)), uniqueItems.getOrElse(false),
-        additionalProps,
+        additionalProps.flatMap(_.fold( v=> if (v) Some(SchemaDocument.empty(scope)(valueNumeric)) else None, Some(_) )),
         ConstrainedMap(
           properties.getOrElse(Map.empty).map((kv) => kv._1 -> Property(requiredField.contains(kv._1), kv._2)).toMap,
           propsConstrain.getOrElse(noIntConstain)),
         patternProps.getOrElse(Map.empty).map((kv) => kv._1.r -> kv._2).toMap,
+        enums.getOrElse(Set.empty),
         SchemaCommon(
           title,
           description,
           format,
           definitions.getOrElse(Map.empty),
           dependencies.getOrElse(Map.empty),
-          enums.getOrElse(Set.empty),
           types.getOrElse(Set.empty),
           anyOf.getOrElse(List.empty), allOf.getOrElse(List.empty), oneOf.getOrElse(List.empty),
           not
