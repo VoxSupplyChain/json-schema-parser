@@ -14,33 +14,83 @@ import scalaz.Validation
 
 trait CodeGen extends Naming {
 
-  def generate(ts: Iterable[ScalaType], scope: URI)(outputDir: Path): Validation[String, Seq[Path]] = {
+  val additionalPropertiesMember = "_additional"
+
+  def generateFile(scope: URI, fileName: String, outputDir: Path)(content: String => Validation[String, String]): Validation[String, Seq[Path]] = {
 
     val packageName = genPackageName(scope)
 
     try {
-      val models = ts.map {
-        case t: ScalaClass => genType(t)
-        case _ => ""
-      }.mkString(
-          s"package $packageName\n\n",
-          "\n\n", ""
-        )
 
       val packageDir: String = packageName.replaceAll("\\.", File.separator)
-      val modelFile = packageDir + File.separator + "model.scala"
+      val modelFile = packageDir + File.separator + fileName
 
       // create package structure
       Files.createDirectories(outputDir.resolve(packageDir))
-      // model file
-      Seq(
-        Files.write(outputDir.resolve(modelFile), models.getBytes(StandardCharsets.UTF_8))
-      ).success
+      content(packageName) map {
+        fileContent =>
+          Seq(
+            Files.write(outputDir.resolve(modelFile), fileContent.getBytes(StandardCharsets.UTF_8))
+          )
+      }
 
     } catch {
       case NonFatal(e) => e.getMessage.failure
     }
 
+  }
+
+  def generateCodec(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
+    generateFile(scope, "Codecs.scala", outputDir) {
+      packageName =>
+
+        val codecs = ts.map {
+          case t: ScalaClass => genCodec(t)
+          case _ => ""
+        }.mkString("\n")
+
+        s"""
+         |package $packageName
+         |
+         |import argonaut._, Argonaut._
+         |
+         |object Codecs {
+         |$codecs
+         |}
+        """.stripMargin.success
+
+    }
+
+  }
+
+  def generateModel(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
+    generateFile(scope, "model.scala", outputDir) {
+      packageName =>
+
+        ts.map {
+          case t: ScalaClass => genType(t)
+          case _ => ""
+        }.mkString(
+            s"package $packageName\n\n",
+            "\n\n", ""
+          ).success
+
+    }
+  }
+
+  def genCodec(c: ScalaClass): String = {
+    val propNames = c.properties.map(p => '"' + p.name + '"').mkString(", ")
+    val className = c.identifier
+    c.additionalNested.fold(
+      s"""
+       |implicit def ${className}Codec=casecodec${c.properties.length}("$className.apply", "$className.unapply")($propNames)
+     """.stripMargin
+    )(
+        additionalType =>
+          s"""
+           |implicit def ${className}Codec=CodecJson(MapEncodeJson[$className], MapDecodeJson[$className])
+         """.stripMargin
+      )
   }
 
   def genPackageName(scope: URI) = {
@@ -70,8 +120,8 @@ trait CodeGen extends Naming {
       }
       val extra = t.additionalNested.map {
         tn =>
-          val propType= genPropertyType(tn)
-          s"extras:Map[String, $propType]"
+          val propType = genPropertyType(tn)
+          s"$additionalPropertiesMember:Map[String, $propType]"
       }
       val members = (properties ++ extra.toList).mkString(", ")
       s"""case class ${t.identifier}($members)""".stripMargin
@@ -111,12 +161,13 @@ object CodeGenerator extends CodeGen {
     }
   }
 
-  def gen[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N], source: T) = {
+  def gen[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N], source: T)(codeGenTarget: Path) = {
     for {
       schema <- jsonParser.parse(source).validation.pp
       models <- ScalaModelGenerator(schema).pp
-      files <- generate(models, schema.scope)(FileSystems.getDefault.getPath("/tmp")).pp
-    } yield files
+      modelFiles <- generateModel(models, schema.scope, codeGenTarget).pp
+      codecFiles <- generateCodec(models, schema.scope, codeGenTarget).pp
+    } yield modelFiles ++ codecFiles
 
   }
 
@@ -124,8 +175,10 @@ object CodeGenerator extends CodeGen {
 
     val source: File = new File(args(0))
 
-    val result = if (true) gen(JsonSchemaParser, source) else gen(new JsonSchemaParser[Float], source)
+    val genRoot: Path = FileSystems.getDefault.getPath("/tmp")
+    val generator = if (true) gen(JsonSchemaParser, source)(_) else gen(new JsonSchemaParser[Float], source)(_)
 
+    val result = generator(genRoot)
     println(result)
 
     if (result.isFailure) System.exit(1) else System.exit(0)
