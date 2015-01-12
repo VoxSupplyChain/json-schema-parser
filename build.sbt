@@ -4,6 +4,8 @@ name := "json-schema-parser"
 
 version := "0.0.1-SNAPSHOT"
 
+organization := "com.voxsupplychain"
+
 scalaVersion := "2.10.4"
 
 libraryDependencies ++= Seq(
