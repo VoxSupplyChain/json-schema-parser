@@ -112,7 +112,7 @@ class CodeGenTest extends FlatSpec with GeneratorDrivenPropertyChecks with Match
       """.stripMargin) shouldBe
       Success(
         """
-          |case class Product(extras:Map[String, Nested])
+          |case class Product(_additional:Map[String, Nested])
           |case class Nested()
           | """.stripMargin.trim)
   }
