@@ -16,10 +16,14 @@ libraryDependencies ++= Seq(
 
 bintraySettings
 
+releaseSettings
+
 packageLabels in bintray := Seq("json-schema", "parser")
 
 publishMavenStyle := false
 
-repository in bintray := "vox-ivy"
+licenses := Seq("Apache-2.0" -> new URL("http://www.apache.org/licenses/LICENSE-2.0"))
+
+repository in bintray := "ivy-public"
 
 bintrayOrganization in bintray := Some("voxsupplychain")
