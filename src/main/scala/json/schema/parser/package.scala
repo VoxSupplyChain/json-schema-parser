@@ -86,7 +86,7 @@ package object parser {
     override def toString: String = {
       val props = properties.value.keys
       val key = id.getOrElse(scope)
-      s"JsoneSchema($key -> $props)"
+      s"JsonSchema($key -> $props)"
     }
   }
 
