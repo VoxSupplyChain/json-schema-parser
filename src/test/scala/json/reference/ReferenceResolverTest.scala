@@ -54,7 +54,7 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
         |}
       """,
       """
-        |"street-address"
+        |["street-address"]
       """
     )
   }
@@ -102,8 +102,8 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
       """
         | {
         | "source": "object",
-        | "target": ["street-address", ["locality", "region", "country-name"]],
-        | "target2": ["street-address", ["locality", "region", "country-name"]]
+        | "target": [["street-address"], ["locality", "region", "country-name"]],
+        | "target2": [["street-address"], ["locality", "region", "country-name"]]
         | }
       """
     )
