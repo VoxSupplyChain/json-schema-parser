@@ -274,7 +274,8 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         | "id": "product",
         |"type":"object",
         |"properties": {
-        |"a":{"$ref": "#/definitions/typea"}
+        |"a":{"$ref": "#/definitions/typea"},
+        |"b":{"$ref": "http://json-schema.org/address#"}
         |},
         |"definitions":{
         | "typea":{
@@ -287,6 +288,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
     r.map(_.scope) shouldBe Success(new URI("product#"))
     r.map(_.properties.value("a").schema.common.types) shouldBe Success(Set(SimpleType.string))
     r.map(_.properties.value("a").schema.id) shouldBe Success(Some(new URI("product#/definitions/typea")))
+    r.map(_.properties.value("b").schema.id) shouldBe Success(Some(new URI("http://json-schema.org/address#")))
 
   }
 
