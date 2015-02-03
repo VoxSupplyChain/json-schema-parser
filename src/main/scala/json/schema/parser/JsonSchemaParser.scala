@@ -9,7 +9,6 @@ import json.schema.scope.{ExpandReferences, ScopeDiscovery}
 import json.source.JsonSource
 
 import scala.collection.immutable.Stack
-import scalaz.Scalaz._
 import scalaz._
 
 class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
@@ -28,8 +27,11 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
         local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
           reference: URI =>
             val referenceRootDoc = reference.resolve("#")
-            idMap.get(reference).map((_, referenceRootDoc)).orElse(idMap.get(referenceRootDoc).map((_, reference)))
-              .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j)) orElse cachingUriSource.json(reference).map((_, reference))
+            for {
+              result <- idMap.get(reference).map((_, referenceRootDoc)).orElse(idMap.get(referenceRootDoc).map((_, reference)))
+                .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j)) orElse cachingUriSource.json(reference).map((_, reference))
+              expandedResult <- ExpandReferences.expand(result._2, result._1.hcursor)
+            } yield (expandedResult, result._2)
 
         }) {
 
@@ -52,6 +54,7 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
       updatedJ
   }
 
+  import Scalaz._
   private def parseToSchema(uri: URI)(j: Json) = j.jdecode(schemaDecoder(uri)).toDisjunction.leftMap(r => r._1 + ": " + r._2.shows)
 
   def parse[T: JsonSource](source: T): String \/ SchemaDocument[N] = read(source).flatMap(parseToSchema(implicitly[JsonSource[T]].uri(source)))
