@@ -33,13 +33,13 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
 
         }) {
 
-          override def resolveReference(reference: URI)(implicit rootURI: URI, loader: Loader, inprogress: Stack[URI]): \/[String, Json] = {
+          override def resolveReference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): \/[String, Json] = {
             // preserve the reference used for loading the json in the *id* field, so it is know where the node came from.
-            super.resolveReference(reference).map(result => jsonWithId(result, reference))
+            super.resolveReference(reference, rootURI, loader, inprogress).map(result => jsonWithId(result, reference))
           }
 
         }
-        resolved <- local.resolvePointer(rootUri)(expandedJson, rootUri, Stack.empty)
+        resolved <- local.resolvePointer(rootUri, expandedJson, rootUri, Stack.empty)
       } yield resolved
   }
 
