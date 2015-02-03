@@ -29,7 +29,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
 
   private def nestedSchemaFields(c: HCursor) = c.fieldSet.getOrElse(List.empty).filterNot(schemaFields.contains).toSet
 
-  private def isValidId(uri: URI) = uri.toString != "#" && !uri.toString.isEmpty
+  private def isValidId(uri: URI) = !uri.toString.isEmpty
 
   private def isValidSchema(uri: URI) = schemaVersions.contains(uri)
 

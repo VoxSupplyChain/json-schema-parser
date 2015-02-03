@@ -12,9 +12,8 @@ import scalaz._
 
 /**
  * Implementation JSON-Reference resolver as described in http://tools.ietf.org/html/draft-pbryan-zyp-json-ref-03
- * @param inprogress current resolution stack, to help tracking cyclic dependencies
  */
-case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaultLoader: Loader ) {
+class ReferenceResolver(defaultLoader: Loader) {
 
   def relative(parent: URI, sub: URI) = {
     val resolved = parent.resolve(sub)
@@ -22,30 +21,32 @@ case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaul
   }
 
 
-  private def resolve(json: Json)(implicit root: Json, rootURI: URI): String \/ Json = new ReferenceTraverser {
+  private def resolve(json: Json, root: Json, rootURI: URI, inprogress: Stack[URI]): String \/ Json = new ReferenceTraverser {
 
     override def resolve: (URI) => \/[String, Json] = {
       uri =>
 
         val resolved = if (uri.toString.startsWith("#"))
-          resolvePointer(uri)(root, rootURI)
-        else
-          resolveReference(relative(rootURI, uri))(rootURI, defaultLoader)
+          resolvePointer(uri, root, rootURI, inprogress)
+        else {
+          val expandedURI: URI = relative(rootURI, uri)
+          resolveReference(expandedURI, rootURI, defaultLoader, inprogress)
+        }
 
         resolved leftMap (cause => s"reference $uri not found: $cause")
     }
 
   }.traverse(json.hcursor)
 
-  def resolvePointer(reference: URI)(implicit root: Json, rootURI: URI): String \/ Json = {
-    resolveReference(reference)(rootURI, uri => \/-((root, uri)))
+  def resolvePointer(reference: URI, root: Json, rootURI: URI, inprogress: Stack[URI]): String \/ Json = {
+    resolveReference(reference, rootURI, uri => \/-((root, uri)), inprogress)
   }
 
   /**
    * @param reference reference with a pointer
    * @return
    */
-  def resolveReference(reference: URI)(implicit rootURI: URI, loader: Loader): String \/ Json = {
+  def resolveReference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): String \/ Json = {
     if (inprogress.contains(reference))
       -\/(s"found cyclic reference: $reference")
     else {
@@ -54,8 +55,7 @@ case class ReferenceResolver(inprogress: Stack[URI] = Stack(new URI("")), defaul
         case (root, updatedReference) =>
           JsonPointerDecodeJson(updatedReference).flatMap(d => d(root.hcursor).toDisjunction.leftMap(_.toString())) flatMap {
             pointedNode =>
-              val nestedResolver = this.copy(inprogress.push(reference))
-              nestedResolver.resolve(pointedNode)(root, rootURI)
+              resolve(pointedNode, root, rootURI, inprogress.push(reference))
           }
 
       }
@@ -70,13 +70,13 @@ object ReferenceResolver {
 
   val local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
     uri: URI =>
-      JsonSource.uri.json(uri).map( (_, uri))
+      JsonSource.uri.json(uri).map((_, uri))
   })
 
-  def apply[T](addr: T)(implicit src:JsonSource[T]): String \/ Json =
+  def apply[T](addr: T)(implicit src: JsonSource[T]): String \/ Json =
     src.json(addr).flatMap(root => {
       val uri = src.uri(addr)
-      local.resolvePointer(uri)(root, uri)
+      local.resolvePointer(uri, root, uri, Stack.empty)
     })
 
 }

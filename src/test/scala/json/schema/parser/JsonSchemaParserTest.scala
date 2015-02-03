@@ -128,13 +128,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |{
         |    "id":""
         |}
-      """.stripMargin).map(_.schema) should containFailure("not valid id")
-    parse(
-      """
-        |{
-        |    "id":"#"
-        |}
-      """.stripMargin).map(_.schema) should containFailure("not valid id")
+      """.stripMargin).map(_.schema) shouldBe Success(None)
   }
 
   it should "resolve id based on parent schema" in {
@@ -256,11 +250,11 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         | "id": "product",
         |"type":"object",
         |"properties": {
-        |"a":{"$ref": "#/definitions/typea"}
+        |"a":{"$ref": "#/definitions/overriden"}
         |},
         |"definitions":{
         | "typea":{
-        | "id":"#/definitions/typea",
+        | "id":"#/definitions/overriden",
         | "type":"string"
         | }
         |}
@@ -269,6 +263,30 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
     r.map(_.scope) shouldBe Success(new URI("product#"))
     r.map(_.properties.value("a").schema.common.types) shouldBe Success(Set(SimpleType.string))
+    r.map(_.properties.value("a").schema.id) shouldBe Success(Some(new URI("product#/definitions/overriden")))
+
+  }
+
+  it should "decodes pointer references and preserves the reference as id" in {
+    val r =     parse(
+      """
+        |{
+        | "id": "product",
+        |"type":"object",
+        |"properties": {
+        |"a":{"$ref": "#/definitions/typea"}
+        |},
+        |"definitions":{
+        | "typea":{
+        | "type":"string"
+        | }
+        |}
+        |}
+      """.stripMargin)
+
+    r.map(_.scope) shouldBe Success(new URI("product#"))
+    r.map(_.properties.value("a").schema.common.types) shouldBe Success(Set(SimpleType.string))
+    r.map(_.properties.value("a").schema.id) shouldBe Success(Some(new URI("product#/definitions/typea")))
 
   }
 
