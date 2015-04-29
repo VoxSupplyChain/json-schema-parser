@@ -40,49 +40,49 @@ package object parser {
 
   case class Property[N](required: Boolean, schema: SchemaDocument[N])
 
-  case class SchemaReference(uri: URI)
 
-  case class SchemaCommon[N](
-                              title: Option[String],
-                              description: Option[String],
-                              format: Option[String],
+  case class NumberConstraint[N](multipleOf: Option[N], valueConstraint: RangeConstrain[Exclusivity[N]])
 
-                              definitions: Map[String, SchemaDocument[N]],
-                              dependencies: Map[String, Either[SchemaDocument[N], Set[String]]],
-                              types: Set[SimpleType.SimpleType],
-                              anyOf: List[SchemaDocument[N]],
-                              allOf: List[SchemaDocument[N]],
-                              oneOf: List[SchemaDocument[N]],
-                              not: Option[SchemaDocument[N]]
-                              )
+  case class StringConstraint(stringConstraint: RangeConstrain[Int], pattern: Option[Regex])
+
+  case class ArrayConstraint[N](additionalItems: Option[Either[Boolean, SchemaDocument[N]]], items: ConstrainedList[SchemaDocument[N]], uniqueItems: Boolean)
+
+  case class ObjectConstraint[N](
+                                  additionalProperties: Option[SchemaDocument[N]],
+                                  properties: ConstrainedMap[Property[N]],
+                                  patternProperties: Map[Regex, SchemaDocument[N]]
+                                  )
 
   case class SchemaDocument[N](
                                 id: Option[URI],
                                 scope: URI,
                                 schema: Option[URI],
-                                // number
-                                multipleOf: Option[N],
-                                valueConstraint: RangeConstrain[Exclusivity[N]],
-                                // string
-                                stringConstraint: RangeConstrain[Int],
-                                pattern: Option[Regex],
-                                // array
-                                additionalItems: Option[Either[Boolean, SchemaDocument[N]]],
-                                items: ConstrainedList[SchemaDocument[N]],
-                                uniqueItems: Boolean,
-                                // object
-                                additionalProperties: Option[SchemaDocument[N]],
-                                properties: ConstrainedMap[Property[N]],
-                                patternProperties: Map[Regex, SchemaDocument[N]],
-                                // enumeration
-                                enums: Set[Json],
+                                // type specific constraints
+                                number: Option[NumberConstraint[N]],
+                                string: Option[StringConstraint],
+                                array: Option[ArrayConstraint[N]],
+                                obj: Option[ObjectConstraint[N]],
+
                                 // common
-                                common: SchemaCommon[N],
-                                nestedSchemas: Map[String, SchemaDocument[N]]
+                                enums: Set[Json],
+                                nestedSchemas: Map[String, SchemaDocument[N]],
+
+                                title: Option[String],
+                                description: Option[String],
+
+                                format: Option[String],
+
+                                definitions: Map[String, SchemaDocument[N]],
+                                dependencies: Map[String, Either[SchemaDocument[N], Set[String]]],
+                                types: Set[SimpleType.SimpleType],
+                                anyOf: List[SchemaDocument[N]],
+                                allOf: List[SchemaDocument[N]],
+                                oneOf: List[SchemaDocument[N]],
+                                not: Option[SchemaDocument[N]]
 
                                 ) {
     override def toString: String = {
-      val props = properties.value.keys
+      val props = obj.map(_.properties.value.keys).getOrElse(Nil)
       val key = id.getOrElse(scope)
       s"JsonSchema($key -> $props)"
     }
@@ -90,18 +90,17 @@ package object parser {
 
   object SchemaDocument {
     def empty[N](scope: URI)(implicit n: Numeric[N]): SchemaDocument[N] = {
-      val noConstraintE: RangeConstrain[Exclusivity[N]] = RangeConstrain(None, None)
-      val noConstraint: RangeConstrain[Int] = RangeConstrain(None, None)
+
       SchemaDocument(
-        None, scope, None, None, noConstraintE, noConstraint, None, None,
-        ConstrainedList[SchemaDocument[N]](Nil, noConstraint),
-        uniqueItems = false, None,
-        ConstrainedMap[Property[N]](Map.empty, noConstraint),
-        Map.empty, Set.empty,
-        SchemaCommon(None, None, None, Map.empty, Map.empty, Set.empty, Nil, Nil, Nil, None),
-        Map.empty
+        None, scope, None,
+        None, None,
+        None, None,
+        Set.empty,
+        Map.empty,
+        None, None, None, Map.empty, Map.empty, Set.empty, Nil, Nil, Nil, None
       )
     }
 
   }
+
 }

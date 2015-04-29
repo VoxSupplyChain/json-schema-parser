@@ -5,6 +5,7 @@ import java.net.URI
 
 import argonaut.{DecodeJson, DecodeResult, HCursor, Json}
 import json.reference.ReferenceResolver
+import json.schema.parser.SimpleType.SimpleType
 
 import scala.util.matching.Regex
 
@@ -26,17 +27,79 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
   } yield RangeConstrain(max, min.orElse(Some(0)))
 
 
-  private def isPositive(a: N) = valueNumeric.compare(a, valueNumeric.zero) > 0
+  private def isPositive(a: N): Boolean = valueNumeric.compare(a, valueNumeric.zero) > 0
 
-  private def nestedSchemaFields(c: HCursor) = c.fieldSet.getOrElse(List.empty).filterNot(schemaFields.contains).toSet
+  private def nestedSchemas(c: HCursor)(nestedDocumentDecoder: DecodeJson[Schema]) =
+    c.fieldSet.getOrElse(List.empty).filterNot(schemaFields.contains).foldLeft(DecodeResult.ok(Map.empty[String, Schema])) {
+      (result: DecodeResult[Map[String, Schema]], f: String) =>
+        result flatMap {
+          (r: Map[String, Schema]) =>
+            val nestedDoc: DecodeResult[Schema] = c.get[Schema](f)(nestedDocumentDecoder)
+            nestedDoc map ((d: Schema) => r + (f -> d))
+        }
+    }
 
   private def isValidId(uri: URI) = !uri.toString.isEmpty
 
   private def isValidSchema(uri: URI) = schemaVersions.contains(uri)
 
-  def apply(parentId: URI, rootSchema: Boolean): DecodeJson[Schema] = DecodeJson { c =>
 
-    implicit val OptionalNumberDecoder = OptionDecodeJson(numberDecoder)
+  private def numberType(c: HCursor): DecodeResult[NumberConstraint[N]] = {
+    implicit val OptionalNumberDecoder: DecodeJson[Option[N]] = OptionDecodeJson(numberDecoder)
+
+    for {
+      multipleOf <- c.get[Option[N]]("multipleOf").flatMap(validated(c, _.map(isPositive).getOrElse(true), " must be positive number"))
+      exclusiveMax <- c.get[Option[Boolean]]("exclusiveMaximum")
+      exclusiveMin <- c.get[Option[Boolean]]("exclusiveMinimum")
+      max <- c.get[Option[N]]("maximum").map(_.map(Exclusivity[N](exclusiveMax.getOrElse(false), _)))
+      min <- c.get[Option[N]]("minimum").map(_.map(Exclusivity[N](exclusiveMin.getOrElse(false), _)))
+    } yield NumberConstraint(multipleOf, RangeConstrain[Exclusivity[N]](max, min))
+  }
+
+  private def stringType(c: HCursor): DecodeResult[StringConstraint] = for {
+    stringConstrain <- rangeConstrain(c, "minLength", "maxLength").option
+    pattern <- c.get[Option[Regex]]("pattern")
+  } yield StringConstraint(stringConstrain.getOrElse(noIntConstain), pattern)
+
+  private def arrayType(c: HCursor)(nestedDocumentDecoder: DecodeJson[Schema]): DecodeResult[ArrayConstraint[N]] = {
+    val additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
+
+    for {
+      additionalItems <- c.get[Either[Boolean, Schema]]("additionalItems")(additionalDecoder).option
+      itemsConstrain <- rangeConstrain(c, "minItems", "maxItems").option
+      items <- c.get[List[Schema]]("items")(oneOrNonEmptyList(nestedDocumentDecoder)).option
+      uniqueItems <- c.get[Option[Boolean]]("uniqueItems")
+    } yield ArrayConstraint(
+      additionalItems, ConstrainedList(items.getOrElse(List.empty),
+        itemsConstrain.getOrElse(noIntConstain)), uniqueItems.getOrElse(false)
+    )
+  }
+
+  private def objectType(c: HCursor)(scope: URI, nestedDocumentDecoder: DecodeJson[Schema]) = {
+    val mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson(nestedDocumentDecoder)).option
+    val additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
+    for {
+      propsConstrain <- rangeConstrain(c, "minProperties", "maxProperties").option
+      additionalProps <- c.get[Either[Boolean, Schema]]("additionalProperties")(additionalDecoder).option
+      properties <- mapOfSchemas(c, "properties")
+      patternProps <- mapOfSchemas(c, "patternProperties")
+      requiredPropNames <- c.get[Set[String]]("required")(nonEmptySetDecodeJsonStrict).option
+    } yield {
+      val requiredField = requiredPropNames.getOrElse(Set.empty)
+
+      ObjectConstraint(
+        additionalProps.flatMap(_.fold(v => if (v) Some(SchemaDocument.empty(scope)(valueNumeric)) else None, Some(_))),
+        ConstrainedMap(
+          properties.getOrElse(Map.empty).map((kv) => kv._1 -> Property(requiredField.contains(kv._1), kv._2)),
+          propsConstrain.getOrElse(noIntConstain)),
+        patternProps.getOrElse(Map.empty).map((kv) => kv._1.r -> kv._2)
+      )
+    }
+  }
+
+  def apply(parentId: URI, rootSchema: Boolean): DecodeJson[Schema] = DecodeJson { c =>
+    val types: Set[SimpleType] = c.get[Set[SimpleType.SimpleType]]("type")(oneOrSetStrict).getOr(Set.empty[SimpleType])
+    def when[T](t: SimpleType.SimpleType)(f: => DecodeResult[T]): DecodeResult[Option[T]] = if (types.contains(t)) f.option else DecodeResult.ok(None)
 
     for {
     // metadata
@@ -45,81 +108,39 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       schema <- c.get[Option[URI]]("$schema").flatMap(validated(c, _.map(isValidSchema).getOrElse(true), " is not supported schema"))
       description <- c.get[Option[String]]("description")
       format <- c.get[Option[String]]("format")
-
       // sub documents with reference to this document id
       scope: URI = if (rootSchema) id.getOrElse(parentId) else id.map(ReferenceResolver.resolve(parentId, _)).getOrElse(parentId)
-      nestedDocumentDecoder = apply(scope, rootSchema = false)
-
+      nestedDocumentDecoder: DecodeJson[Schema] = apply(scope, rootSchema = false)
+      additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
+      number <- when(SimpleType.number)(numberType(c))
+      string <- when(SimpleType.string)(stringType(c))
+      array <- when(SimpleType.array)(arrayType(c)(nestedDocumentDecoder))
+      obj <- when(SimpleType.`object`)(objectType(c)(scope, nestedDocumentDecoder))
       // handy methods to decode common types
       listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
       mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson(nestedDocumentDecoder)).option
       dependencyDecoder = either(nestedDocumentDecoder, nonEmptySetDecodeJsonStrict[String])
-      additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
-
-      // value constrains
-      multipleOf <- c.get[Option[N]]("multipleOf").flatMap(validated(c, _.map(isPositive).getOrElse(true), " must be positive number"))
-      exclusiveMax <- c.get[Option[Boolean]]("exclusiveMaximum")
-      exclusiveMin <- c.get[Option[Boolean]]("exclusiveMinimum")
-      max <- c.get[Option[N]]("maximum").map(_.map(Exclusivity[N](exclusiveMax.getOrElse(false), _)))
-      min <- c.get[Option[N]]("minimum").map(_.map(Exclusivity[N](exclusiveMin.getOrElse(false), _)))
-      // string constrains
-      stringConstrain <- rangeConstrain(c, "minLength", "maxLength").option
-      pattern <- c.get[Option[Regex]]("pattern")
-      // array constrains
-      additionalItems <- c.get[Either[Boolean, Schema]]("additionalItems")(additionalDecoder).option
-      itemsConstrain <- rangeConstrain(c, "minItems", "maxItems").option
-      items <- c.get[List[Schema]]("items")(oneOrNonEmptyList(nestedDocumentDecoder)).option
-      uniqueItems <- c.get[Option[Boolean]]("uniqueItems")
-      // object constrains
-      propsConstrain <- rangeConstrain(c, "minProperties", "maxProperties").option
-      additionalProps <- c.get[Either[Boolean, Schema]]("additionalProperties")(additionalDecoder).option
-      properties <- mapOfSchemas(c, "properties")
-      patternProps <- mapOfSchemas(c, "patternProperties")
-      requiredPropNames <- c.get[Set[String]]("required")(nonEmptySetDecodeJsonStrict).option
       definitions <- mapOfSchemas(c, "definitions")
       dependencies <- c.get[Map[String, Either[Schema, Set[String]]]]("dependencies")(MapDecodeJson(dependencyDecoder)).option
       // for any instance type
       enums <- c.get[Set[Json]]("enum")(nonEmptySetDecodeJsonStrict).option
-      types <- c.get[Set[SimpleType.SimpleType]]("type")(oneOrSetStrict).option
       anyOf <- listOfSchemas(c, "anyOf")
       allOf <- listOfSchemas(c, "allOf")
       oneOf <- listOfSchemas(c, "oneOf")
       not <- c.get[Schema]("not")(nestedDocumentDecoder).option
-      nested <- nestedSchemaFields(c).foldLeft(DecodeResult.ok(Map.empty[String, Schema])) {
-        (result: DecodeResult[Map[String, Schema]], f: String) =>
-          result flatMap {
-            (r: Map[String, Schema]) =>
-              val nestedDoc: DecodeResult[Schema] = c.get[Schema](f)(nestedDocumentDecoder)
-              nestedDoc map ((d: Schema) => r + (f -> d))
-          }
-      }
-
+      nested <- nestedSchemas(c)(nestedDocumentDecoder)
     } yield {
-      val requiredField = requiredPropNames.getOrElse(Set.empty)
       SchemaDocument(
-        id,
-        scope,
-        schema,
-        multipleOf, RangeConstrain[Exclusivity[N]](max, min),
-        stringConstrain.getOrElse(noIntConstain), pattern,
-        additionalItems, ConstrainedList(items.getOrElse(List.empty), itemsConstrain.getOrElse(noIntConstain)), uniqueItems.getOrElse(false),
-        additionalProps.flatMap(_.fold( v=> if (v) Some(SchemaDocument.empty(scope)(valueNumeric)) else None, Some(_) )),
-        ConstrainedMap(
-          properties.getOrElse(Map.empty).map((kv) => kv._1 -> Property(requiredField.contains(kv._1), kv._2)).toMap,
-          propsConstrain.getOrElse(noIntConstain)),
-        patternProps.getOrElse(Map.empty).map((kv) => kv._1.r -> kv._2).toMap,
+        id, scope, schema,
+        number, string, array, obj,
+        // common properties
         enums.getOrElse(Set.empty),
-        SchemaCommon(
-          title,
-          description,
-          format,
-          definitions.getOrElse(Map.empty),
-          dependencies.getOrElse(Map.empty),
-          types.getOrElse(Set.empty),
-          anyOf.getOrElse(List.empty), allOf.getOrElse(List.empty), oneOf.getOrElse(List.empty),
-          not
-        ),
-        nested
+        nested,
+        // descriptions
+        title, description, format,
+        // additional sub types
+        definitions.getOrElse(Map.empty), dependencies.getOrElse(Map.empty), types,
+        anyOf.getOrElse(List.empty), allOf.getOrElse(List.empty), oneOf.getOrElse(List.empty), not
       )
     }
   }

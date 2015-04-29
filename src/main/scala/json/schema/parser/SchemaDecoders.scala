@@ -48,9 +48,6 @@ object SchemaDecoders extends DecodeJsons {
         }
     })
 
-  implicit lazy val SchemaReferenceJson: CodecJson[SchemaReference] =
-    casecodec1(SchemaReference.apply, SchemaReference.unapply)("$ref")
-
   def nonEmptyListDecodeJson[A](implicit e: DecodeJson[A]): DecodeJson[List[A]] =
     implicitly[DecodeJson[List[A]]] flatMap {
       list =>
