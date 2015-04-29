@@ -21,10 +21,10 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
     v: A => if (successCondition(v)) DecodeResult.ok(v) else DecodeResult.fail(v.toString + err, c.history)
   }
 
-  private def rangeConstrain(c: HCursor, minField: String, maxField: String): DecodeResult[RangeConstrain[Int]] = for {
-    max <- c.get[Int](maxField).flatMap(validated(c, _ >= 0, s" must be greater or equal to 0")).option
-    min <- c.get[Int](minField).flatMap(validated(c, _ >= 0, s" must be greater or equal to 0")).option
-  } yield RangeConstrain(max, min.orElse(Some(0)))
+  private def rangeConstrain(c: HCursor, minField: String, maxField: String): DecodeResult[RangeConstrain[Inclusive[Int]]] = for {
+    max <- c.get[Int](maxField).flatMap(validated(c, _ >= 0, s" must be greater or equal to 0")).map(Inclusive(_)).option
+    min <- c.get[Int](minField).flatMap(validated(c, _ >= 0, s" must be greater or equal to 0")).map(Inclusive(_)).option
+  } yield RangeConstrain(max, min.orElse(Some(Inclusive(0))))
 
 
   private def isPositive(a: N): Boolean = valueNumeric.compare(a, valueNumeric.zero) > 0
@@ -51,9 +51,9 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       multipleOf <- c.get[Option[N]]("multipleOf").flatMap(validated(c, _.map(isPositive).getOrElse(true), " must be positive number"))
       exclusiveMax <- c.get[Option[Boolean]]("exclusiveMaximum")
       exclusiveMin <- c.get[Option[Boolean]]("exclusiveMinimum")
-      max <- c.get[Option[N]]("maximum").map(_.map(Exclusivity[N](exclusiveMax.getOrElse(false), _)))
-      min <- c.get[Option[N]]("minimum").map(_.map(Exclusivity[N](exclusiveMin.getOrElse(false), _)))
-    } yield NumberConstraint(multipleOf, RangeConstrain[Exclusivity[N]](max, min))
+      max <- c.get[Option[N]]("maximum").map(_.map(Boundary[N](exclusiveMax.getOrElse(false), _)))
+      min <- c.get[Option[N]]("minimum").map(_.map(Boundary[N](exclusiveMin.getOrElse(false), _)))
+    } yield NumberConstraint(multipleOf, RangeConstrain[Boundary[N]](max, min))
   }
 
   private def stringType(c: HCursor): DecodeResult[StringConstraint] = for {
@@ -108,17 +108,18 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       schema <- c.get[Option[URI]]("$schema").flatMap(validated(c, _.map(isValidSchema).getOrElse(true), " is not supported schema"))
       description <- c.get[Option[String]]("description")
       format <- c.get[Option[String]]("format")
-      // sub documents with reference to this document id
+      // handy methods to decode common types
       scope: URI = if (rootSchema) id.getOrElse(parentId) else id.map(ReferenceResolver.resolve(parentId, _)).getOrElse(parentId)
       nestedDocumentDecoder: DecodeJson[Schema] = apply(scope, rootSchema = false)
       additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
+      listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
+      mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson(nestedDocumentDecoder)).option
+      // type constraints
       number <- when(SimpleType.number)(numberType(c))
       string <- when(SimpleType.string)(stringType(c))
       array <- when(SimpleType.array)(arrayType(c)(nestedDocumentDecoder))
       obj <- when(SimpleType.`object`)(objectType(c)(scope, nestedDocumentDecoder))
-      // handy methods to decode common types
-      listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
-      mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson(nestedDocumentDecoder)).option
+      // sub documents with reference to this document id
       dependencyDecoder = either(nestedDocumentDecoder, nonEmptySetDecodeJsonStrict[String])
       definitions <- mapOfSchemas(c, "definitions")
       dependencies <- c.get[Map[String, Either[Schema, Set[String]]]]("dependencies")(MapDecodeJson(dependencyDecoder)).option
@@ -134,9 +135,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
         id, scope, schema,
         number, string, array, obj,
         // common properties
-        enums.getOrElse(Set.empty),
-        nested,
-        // descriptions
+        enums.getOrElse(Set.empty), nested,
         title, description, format,
         // additional sub types
         definitions.getOrElse(Map.empty), dependencies.getOrElse(Map.empty), types,
@@ -148,7 +147,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
 
 object JsonSchemaDecoderFactory {
 
-  private val noIntConstain = RangeConstrain[Int]()
+  private val noIntConstain = RangeConstrain[Inclusive[Int]]()
 
   private val schemaFields = Set(
     "id", "title", "$schema",

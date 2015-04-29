@@ -22,28 +22,39 @@ package object parser {
     val `date-time` = Value("date-time")
   }
 
-  sealed trait Exclusivity[N]
+  sealed trait Boundary[N] {
+    def above(v: N)(implicit n: Numeric[N]): Boolean
 
-  case class Exclusive[N](value: N) extends Exclusivity[N]
+    def below(v: N)(implicit n: Numeric[N]): Boolean
+  }
 
-  case class Inclusive[N](value: N) extends Exclusivity[N]
+  case class Exclusive[N](value: N) extends Boundary[N] {
+    override def above(v: N)(implicit n: Numeric[N]): Boolean = n.gt(value, v)
 
-  object Exclusivity {
-    def apply[N](exclusive: Boolean, v: N): Exclusivity[N] = if (exclusive) Exclusive(v) else Inclusive(v)
+    override def below(v: N)(implicit n: Numeric[N]): Boolean = n.lt(value, v)
+  }
+
+  case class Inclusive[N](value: N) extends Boundary[N] {
+    override def above(v: N)(implicit n: Numeric[N]): Boolean = n.gteq(value, v)
+
+    override def below(v: N)(implicit n: Numeric[N]): Boolean = n.lteq(value, v)
+  }
+
+  object Boundary {
+    def apply[N](exclusive: Boolean, v: N): Boundary[N] = if (exclusive) Exclusive(v) else Inclusive(v)
   }
 
   case class RangeConstrain[T](max: Option[T] = None, min: Option[T] = None)
 
-  case class ConstrainedList[T](value: List[T], sizeConstrain: RangeConstrain[Int])
+  case class ConstrainedList[T](value: List[T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
-  case class ConstrainedMap[T](value: Map[String, T], sizeConstrain: RangeConstrain[Int])
+  case class ConstrainedMap[T](value: Map[String, T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
   case class Property[N](required: Boolean, schema: SchemaDocument[N])
 
+  case class NumberConstraint[N](multipleOf: Option[N], valueConstraint: RangeConstrain[Boundary[N]])
 
-  case class NumberConstraint[N](multipleOf: Option[N], valueConstraint: RangeConstrain[Exclusivity[N]])
-
-  case class StringConstraint(stringConstraint: RangeConstrain[Int], pattern: Option[Regex])
+  case class StringConstraint(stringConstraint: RangeConstrain[Inclusive[Int]], pattern: Option[Regex])
 
   case class ArrayConstraint[N](additionalItems: Option[Either[Boolean, SchemaDocument[N]]], items: ConstrainedList[SchemaDocument[N]], uniqueItems: Boolean)
 
