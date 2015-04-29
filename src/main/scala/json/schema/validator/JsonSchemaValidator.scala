@@ -12,7 +12,7 @@ object JsonSchemaValidator {
 
   def main(args: Array[String]) {
 
-    if (args.size==1) {
+    if (args.length==1) {
       val schemaUri = args(0)
 
       val result = try {
@@ -22,12 +22,12 @@ object JsonSchemaValidator {
       }
 
       result.validation match {
-        case Failure(f) => println(s"invalid schema at $schemaUri: $f")
-        case Success(schema) => println(s"valid schema at $schemaUri: $schema")
+        case Failure(f) => System.err.println(s"invalid schema at $schemaUri: $f")
+        case Success(schema) => System.out.println(s"valid schema at $schemaUri: $schema")
       }
 
     } else {
-      println(s"Usage: ${getClass.getCanonicalName} <schema-uri-or-path> ")
+      System.err.println(s"Usage: ${getClass.getCanonicalName} <schema-uri-or-path> ")
       System.exit(1)
     }
 

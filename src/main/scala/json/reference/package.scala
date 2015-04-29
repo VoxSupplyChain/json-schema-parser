@@ -10,5 +10,4 @@ package object reference {
 
   type Loader = URI => String \/ (Json, URI)
 
-
 }

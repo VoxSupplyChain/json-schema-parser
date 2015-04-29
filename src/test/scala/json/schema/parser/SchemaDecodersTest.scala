@@ -36,24 +36,24 @@ class SchemaDecodersTest extends FlatSpec with GeneratorDrivenPropertyChecks wit
   "SetDecodeJsonStrict" should "decode a valid set into a set" in {
     """
       |["string1", "string2"]
-    """.stripMargin.decodeValidation[Set[String]](SetDecodeJsonStrict) shouldBe Success(Set("string1", "string2"))
+    """.stripMargin.decodeValidation[Set[String]](setDecodeJsonStrict) shouldBe Success(Set("string1", "string2"))
   }
 
   it should "fail decode a invalid set" in {
     """
       |["string1", "string2", "string1"]
-    """.stripMargin.decodeValidation[Set[String]](SetDecodeJsonStrict) shouldBe Failure("[A]Set[A]: []")
+    """.stripMargin.decodeValidation[Set[String]](setDecodeJsonStrict) shouldBe Failure("[A]Set[A]: []")
   }
 
   "NonEmptySetDecodeJsonStrict" should "decode a valid set into a set" in {
     """
       |["string1", "string2"]
-    """.stripMargin.decodeValidation[Set[String]](NonEmptySetDecodeJsonStrict) shouldBe Success(Set("string1", "string2"))
+    """.stripMargin.decodeValidation[Set[String]](nonEmptySetDecodeJsonStrict) shouldBe Success(Set("string1", "string2"))
   }
   it should "fail decode an empty list" in {
     """
       []
-    """.stripMargin.decodeValidation[Set[String]](NonEmptySetDecodeJsonStrict) shouldBe Failure("[A]Set[A]: []")
+    """.stripMargin.decodeValidation[Set[String]](nonEmptySetDecodeJsonStrict) shouldBe Failure("[A]Set[A]: []")
   }
 
 }

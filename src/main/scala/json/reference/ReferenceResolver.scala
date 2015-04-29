@@ -15,12 +15,6 @@ import scalaz._
  */
 class ReferenceResolver(defaultLoader: Loader) {
 
-  def relative(parent: URI, sub: URI) = {
-    val resolved = parent.resolve(sub)
-    if (resolved.getFragment == null || resolved.getFragment.isEmpty) resolved.resolve("#") else resolved
-  }
-
-
   private def resolve(json: Json, root: Json, rootURI: URI, inprogress: Stack[URI]): String \/ Json = new ReferenceTraverser {
 
     override def resolve: (URI) => \/[String, Json] = {
@@ -29,7 +23,7 @@ class ReferenceResolver(defaultLoader: Loader) {
         val resolved = if (uri.toString.startsWith("#"))
           resolvePointer(uri, root, rootURI, inprogress)
         else {
-          val expandedURI: URI = relative(rootURI, uri)
+          val expandedURI: URI = ReferenceResolver.resolve(rootURI, uri)
           resolveReference(expandedURI, rootURI, defaultLoader, inprogress)
         }
 
@@ -78,5 +72,12 @@ object ReferenceResolver {
       val uri = src.uri(addr)
       local.resolvePointer(uri, root, uri, Stack.empty)
     })
+
+
+  def resolve(parent: URI, sub: URI): URI = {
+    val resolved = parent.resolve(sub)
+    val fragment = Option(resolved.getFragment)
+    if (fragment.isEmpty || fragment.exists(_.isEmpty)) resolved.resolve("#") else resolved
+  }
 
 }

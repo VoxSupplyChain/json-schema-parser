@@ -4,16 +4,14 @@ import java.net.{URI, URISyntaxException}
 
 import argonaut.Argonaut._
 import argonaut.{ACursor, HCursor, Json}
+import json.reference.ReferenceResolver
 
 import scala.util.control.Exception
 import scalaz.{-\/, \/, \/-}
 
 trait ScopeDiscovery {
 
-  def childScope(parent: URI, sub: URI) = {
-    val resolved = parent.resolve(sub)
-    if (resolved.getFragment == null || resolved.getFragment.isEmpty) resolved.resolve("#") else resolved
-  }
+  private def childScope(parent: URI, sub: URI) = ReferenceResolver.resolve(parent, sub)
 
   private case class State(scope: URI, scopes: Map[URI, Json])
 

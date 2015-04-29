@@ -4,6 +4,7 @@ package json.schema.parser
 import java.net.URI
 
 import argonaut.{DecodeJson, DecodeResult, HCursor, Json}
+import json.reference.ReferenceResolver
 
 import scala.util.matching.Regex
 
@@ -33,12 +34,6 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
 
   private def isValidSchema(uri: URI) = schemaVersions.contains(uri)
 
-  def resolve(parent: URI, sub: URI) = {
-    val resolved = parent.resolve(sub)
-    if (resolved.getFragment == null || resolved.getFragment.isEmpty) resolved.resolve("#") else resolved
-  }
-
-
   def apply(parentId: URI, rootSchema: Boolean): DecodeJson[Schema] = DecodeJson { c =>
 
     implicit val OptionalNumberDecoder = OptionDecodeJson(numberDecoder)
@@ -52,13 +47,13 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       format <- c.get[Option[String]]("format")
 
       // sub documents with reference to this document id
-      scope: URI = if (rootSchema) id.getOrElse(parentId) else id.map(resolve(parentId, _)).getOrElse(parentId)
+      scope: URI = if (rootSchema) id.getOrElse(parentId) else id.map(ReferenceResolver.resolve(parentId, _)).getOrElse(parentId)
       nestedDocumentDecoder = apply(scope, rootSchema = false)
 
       // handy methods to decode common types
       listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
       mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson(nestedDocumentDecoder)).option
-      dependencyDecoder = either(nestedDocumentDecoder, NonEmptySetDecodeJsonStrict[String])
+      dependencyDecoder = either(nestedDocumentDecoder, nonEmptySetDecodeJsonStrict[String])
       additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
 
       // value constrains
@@ -80,11 +75,11 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       additionalProps <- c.get[Either[Boolean, Schema]]("additionalProperties")(additionalDecoder).option
       properties <- mapOfSchemas(c, "properties")
       patternProps <- mapOfSchemas(c, "patternProperties")
-      requiredPropNames <- c.get[Set[String]]("required")(NonEmptySetDecodeJsonStrict).option
+      requiredPropNames <- c.get[Set[String]]("required")(nonEmptySetDecodeJsonStrict).option
       definitions <- mapOfSchemas(c, "definitions")
       dependencies <- c.get[Map[String, Either[Schema, Set[String]]]]("dependencies")(MapDecodeJson(dependencyDecoder)).option
       // for any instance type
-      enums <- c.get[Set[Json]]("enum")(NonEmptySetDecodeJsonStrict).option
+      enums <- c.get[Set[Json]]("enum")(nonEmptySetDecodeJsonStrict).option
       types <- c.get[Set[SimpleType.SimpleType]]("type")(oneOrSetStrict).option
       anyOf <- listOfSchemas(c, "anyOf")
       allOf <- listOfSchemas(c, "allOf")
@@ -155,5 +150,6 @@ object JsonSchemaDecoderFactory {
 
   private val schemaVersions = Set(new URI("http://json-schema.org/schema#"), new URI("http://json-schema.org/draft-04/schema#"))
 
-  def apply[N](uri: URI = new URI("#"))(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(uri, rootSchema = true)
+  def apply[N](uri: URI = new URI("#"))(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] =
+    new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(uri, rootSchema = true)
 }

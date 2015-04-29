@@ -22,8 +22,6 @@ package object parser {
     val `date-time` = Value("date-time")
   }
 
-  type SchemaRef = String
-
   sealed trait Exclusivity[N]
 
   case class Exclusive[N](value: N) extends Exclusivity[N]
@@ -91,16 +89,19 @@ package object parser {
   }
 
   object SchemaDocument {
-    def empty[N](scope: URI)(implicit n: Numeric[N]) = {
+    def empty[N](scope: URI)(implicit n: Numeric[N]): SchemaDocument[N] = {
       val noConstraintE: RangeConstrain[Exclusivity[N]] = RangeConstrain(None, None)
       val noConstraint: RangeConstrain[Int] = RangeConstrain(None, None)
       SchemaDocument(
-        None, scope, None, None, noConstraintE, noConstraint, None, None, ConstrainedList[SchemaDocument[N]](Nil, noConstraint), uniqueItems = false, None, ConstrainedMap[Property[N]](Map.empty, noConstraint), Map.empty, Set.empty,
-        SchemaCommon(None, None, None, Map.empty, Map.empty, Set.empty, Nil, Nil, Nil, None), Map.empty
+        None, scope, None, None, noConstraintE, noConstraint, None, None,
+        ConstrainedList[SchemaDocument[N]](Nil, noConstraint),
+        uniqueItems = false, None,
+        ConstrainedMap[Property[N]](Map.empty, noConstraint),
+        Map.empty, Set.empty,
+        SchemaCommon(None, None, None, Map.empty, Map.empty, Set.empty, Nil, Nil, Nil, None),
+        Map.empty
       )
     }
 
   }
-
-
 }

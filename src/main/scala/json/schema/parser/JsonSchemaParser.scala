@@ -13,7 +13,7 @@ import scalaz._
 
 class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
 
-  def schemaDecoder(uri: URI) = JsonSchemaDecoderFactory[N](uri)
+  def schemaDecoder(uri: URI): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = JsonSchemaDecoderFactory[N](uri)
 
   def read[T: JsonSource](addr: T)(implicit source: JsonSource[T]): String \/ Json = source.json(addr).flatMap {
     json =>
@@ -50,11 +50,12 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
       val updatedJ = if (j.fields.contains("id"))
         j
       else
-        j +("id", jString(id.toString))
+        j + ("id", jString(id.toString))
       updatedJ
   }
 
   import Scalaz._
+
   private def parseToSchema(uri: URI)(j: Json) = j.jdecode(schemaDecoder(uri)).toDisjunction.leftMap(r => r._1 + ": " + r._2.shows)
 
   def parse[T: JsonSource](source: T): String \/ SchemaDocument[N] = read(source).flatMap(parseToSchema(implicitly[JsonSource[T]].uri(source)))
