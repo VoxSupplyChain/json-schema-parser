@@ -15,3 +15,10 @@ Features:
  * command line schema validator
  * 
  
+ 
+ 
+ ### JSON-Schema Validator Command line
+ 
+    java -jar json-schema-parser-assembly-0.0.6-SNAPSHOT.jar <schema-uri-or-path>
+    
+ 

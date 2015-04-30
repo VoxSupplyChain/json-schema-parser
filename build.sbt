@@ -25,3 +25,5 @@ licenses += "Apache-2.0" -> new URL("http://www.apache.org/licenses/LICENSE-2.0"
 repository in bintray := "ivy-public"
 
 bintrayOrganization in bintray := Some("voxsupplychain")
+
+crossScalaVersions := Seq("2.11.6")
