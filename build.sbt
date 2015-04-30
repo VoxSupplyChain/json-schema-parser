@@ -4,7 +4,7 @@ name := "json-schema-parser"
 
 organization := "com.voxsupplychain"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.10.5"
 
 libraryDependencies ++= Seq(
   "io.argonaut" %% "argonaut" % "6.0.4",
