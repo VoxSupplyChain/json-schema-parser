@@ -26,4 +26,3 @@ repository in bintray := "ivy-public"
 
 bintrayOrganization in bintray := Some("voxsupplychain")
 
-crossScalaVersions := Seq("2.11.6")
