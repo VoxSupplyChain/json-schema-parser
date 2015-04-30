@@ -25,7 +25,7 @@ object JsonPointerDecodeJson {
   def apply(p: JsonPointer): DecodeJson[Json] = DecodeJson(query(p))
 
   @tailrec
-  def query(p: JsonPointer)(a: HCursor): DecodeResult[Json] = {
+  private def query(p: JsonPointer)(a: HCursor): DecodeResult[Json] = {
     val value= p.head match {
       case JsonPointerRootStep =>
         Some(a)

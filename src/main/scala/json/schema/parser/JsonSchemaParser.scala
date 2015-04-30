@@ -4,7 +4,8 @@ import java.net.URI
 
 import argonaut.Argonaut._
 import argonaut.{DecodeJson, Json}
-import json.reference.{Loader, ReferenceResolver}
+import json.reference.ReferenceResolver
+import json.reference.ReferenceResolver.Loader
 import json.schema.scope.{ExpandReferences, ScopeDiscovery}
 import json.source.JsonSource
 

@@ -4,6 +4,7 @@ import java.net.URI
 
 import argonaut.Json
 import json.pointer.JsonPointerDecodeJson
+import json.reference.ReferenceResolver.Loader
 import json.source.JsonSource
 
 import scala.collection.immutable.Stack
@@ -15,7 +16,8 @@ import scalaz._
  */
 class ReferenceResolver(defaultLoader: Loader) {
 
-  private def resolve(json: Json, root: Json, rootURI: URI, inprogress: Stack[URI]): String \/ Json = new ReferenceTraverser {
+  protected def resolve(json: Json, root: Json, rootURI: URI, inprogress: Stack[URI]): String \/ Json = new
+      ReferenceTraverser {
 
     override def resolve: (URI) => \/[String, Json] = {
       uri =>
@@ -32,15 +34,7 @@ class ReferenceResolver(defaultLoader: Loader) {
 
   }.traverse(json.hcursor)
 
-  def resolvePointer(reference: URI, root: Json, rootURI: URI, inprogress: Stack[URI]): String \/ Json = {
-    resolveReference(reference, rootURI, uri => \/-((root, uri)), inprogress)
-  }
-
-  /**
-   * @param reference reference with a pointer
-   * @return
-   */
-  def resolveReference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): String \/ Json = {
+  protected def resolveReference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): String \/ Json = {
     if (inprogress.contains(reference))
       -\/(s"found cyclic reference: $reference")
     else {
@@ -56,13 +50,20 @@ class ReferenceResolver(defaultLoader: Loader) {
     }
   }
 
+  def resolvePointer(reference: URI, root: Json, rootURI: URI, inprogress: Stack[URI]): String \/ Json = {
+    resolveReference(reference, rootURI, uri => \/-((root, uri)), inprogress)
+  }
+
 }
 
 
 object ReferenceResolver {
+  /**
+   * function resolving an URI to a JSON and the final URI used.
+   */
+  type Loader = URI => String \/ (Json, URI)
 
-
-  val local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
+  private val local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
     uri: URI =>
       JsonSource.uri.json(uri).map((_, uri))
   })
