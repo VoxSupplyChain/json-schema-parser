@@ -35,7 +35,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
     parse(
       """
         |{}
-      """.stripMargin) shouldBe a[Success[_, _]]
+      """.stripMargin) shouldBe a[Success[_]]
 
   }
 

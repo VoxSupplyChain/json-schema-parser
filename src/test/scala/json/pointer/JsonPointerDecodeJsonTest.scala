@@ -57,7 +57,7 @@ class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChe
 
     List(
       ("", sampleFromSpec),
-      ("/foo", jArrayElemets(jString("bar"), jString("baz"))),
+      ("/foo", jArrayElements(jString("bar"), jString("baz"))),
       ("/foo/0", jString("bar")),
       ("/", jNumber(0)),
       ("/a~1b", jNumber(1)),
@@ -91,7 +91,7 @@ class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChe
 
     List(
       (new URI("#"), sampleFromSpec),
-      (new URI("#/foo"), jArrayElemets(jString("bar"), jString("baz"))),
+      (new URI("#/foo"), jArrayElements(jString("bar"), jString("baz"))),
       (new URI("#/foo/0"), jString("bar")),
       (new URI("#/"), jNumber(0)),
       (new URI("#/a~1b"), jNumber(1)),

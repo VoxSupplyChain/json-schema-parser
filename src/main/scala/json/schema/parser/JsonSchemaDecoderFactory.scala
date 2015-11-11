@@ -75,8 +75,8 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
     )
   }
 
-  private def objectType(c: HCursor)(scope: URI, nestedDocumentDecoder: DecodeJson[Schema]) = {
-    val mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson(nestedDocumentDecoder)).option
+  private def objectType(c: HCursor, scope: URI)(implicit nestedDocumentDecoder: DecodeJson[Schema]) = {
+    val mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson).option
     val additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
     for {
       propsConstrain <- rangeConstrain(c, "minProperties", "maxProperties").option
@@ -110,19 +110,25 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       format <- c.get[Option[String]]("format")
       // handy methods to decode common types
       scope: URI = if (rootSchema) id.getOrElse(parentId) else id.map(ReferenceResolver.resolve(parentId, _)).getOrElse(parentId)
+
       nestedDocumentDecoder: DecodeJson[Schema] = apply(scope, rootSchema = false)
       additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
       listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
-      mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson(nestedDocumentDecoder)).option
+      mapOfSchemas = (c: HCursor, field: String) => {
+        implicit val sc = nestedDocumentDecoder
+        c.get[Map[String, Schema]](field).option
+      }
       // type constraints
       number <- when(SimpleType.number)(numberType(c))
       string <- when(SimpleType.string)(stringType(c))
       array <- when(SimpleType.array)(arrayType(c)(nestedDocumentDecoder))
-      obj <- when(SimpleType.`object`)(objectType(c)(scope, nestedDocumentDecoder))
+      obj <- when(SimpleType.`object`)(objectType(c, scope)(nestedDocumentDecoder))
       // sub documents with reference to this document id
-      dependencyDecoder = either(nestedDocumentDecoder, nonEmptySetDecodeJsonStrict[String])
       definitions <- mapOfSchemas(c, "definitions")
-      dependencies <- c.get[Map[String, Either[Schema, Set[String]]]]("dependencies")(MapDecodeJson(dependencyDecoder)).option
+      dependencies <- {
+        implicit val dependencyDecoder = either(nestedDocumentDecoder, nonEmptySetDecodeJsonStrict[String])
+        c.get[Map[String, Either[Schema, Set[String]]]]("dependencies").option
+      }
       // for any instance type
       enums <- c.get[Set[Json]]("enum")(nonEmptySetDecodeJsonStrict).option
       anyOf <- listOfSchemas(c, "anyOf")
