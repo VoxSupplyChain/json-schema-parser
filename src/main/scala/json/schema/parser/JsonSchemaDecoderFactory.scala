@@ -4,6 +4,7 @@ package json.schema.parser
 import java.net.URI
 
 import argonaut.{DecodeJson, DecodeResult, HCursor, Json}
+import json.pointer.JsonPointer
 import json.reference.ReferenceResolver
 import json.schema.parser.SimpleType.SimpleType
 
@@ -48,7 +49,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
     implicit val OptionalNumberDecoder: DecodeJson[Option[N]] = OptionDecodeJson(numberDecoder)
 
     for {
-      multipleOf <- c.get[Option[N]]("multipleOf").flatMap(validated(c, _.map(isPositive).getOrElse(true), " must be positive number"))
+      multipleOf <- c.get[Option[N]]("multipleOf").flatMap(validated(c, _.fold(true)(isPositive), " must be positive number"))
       exclusiveMax <- c.get[Option[Boolean]]("exclusiveMaximum")
       exclusiveMin <- c.get[Option[Boolean]]("exclusiveMinimum")
       max <- c.get[Option[N]]("maximum").map(_.map(Boundary[N](exclusiveMax.getOrElse(false), _)))
@@ -103,13 +104,13 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
 
     for {
     // metadata
-      id <- c.get[Option[URI]]("id").flatMap(validated(c, _.map(isValidId).getOrElse(true), " is not valid id"))
+      id <- c.get[Option[URI]]("id").flatMap(validated(c, _.fold(true)(isValidId), " is not valid id"))
       title <- c.get[Option[String]]("title")
-      schema <- c.get[Option[URI]]("$schema").flatMap(validated(c, _.map(isValidSchema).getOrElse(true), " is not supported schema"))
+      schema <- c.get[Option[URI]]("$schema").flatMap(validated(c, _.fold(true)(isValidSchema), " is not supported schema"))
       description <- c.get[Option[String]]("description")
       format <- c.get[Option[String]]("format")
       // handy methods to decode common types
-      scope: URI = if (rootSchema) id.getOrElse(parentId) else id.map(ReferenceResolver.resolve(parentId, _)).getOrElse(parentId)
+      scope: URI = if (rootSchema) id.getOrElse(parentId) else id.fold(parentId)(JsonPointer.resolveAsPointer(parentId, _))
 
       nestedDocumentDecoder: DecodeJson[Schema] = apply(scope, rootSchema = false)
       additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)

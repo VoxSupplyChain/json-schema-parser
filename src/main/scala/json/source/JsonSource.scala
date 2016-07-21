@@ -55,7 +55,9 @@ object JsonSource {
     }
   }
 
-  def cached[T](implicit wrapped: JsonSource[T]): JsonSource[T] = new JsonSource[T] {
+  def apply[T: JsonSource]: JsonSource[T] = implicitly[JsonSource[T]]
+
+  def withCaching[T](implicit wrapped: JsonSource[T]): JsonSource[T] = new JsonSource[T] {
 
     val cache = mutable.Map.empty[URI, String \/ Json]
 

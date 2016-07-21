@@ -4,6 +4,7 @@ import java.net.{URI, URISyntaxException}
 
 import argonaut.Argonaut._
 import argonaut.{ACursor, HCursor, Json}
+import json.pointer.JsonPointer
 import json.reference.ReferenceResolver
 
 import scala.util.control.Exception
@@ -32,14 +33,11 @@ package object scope {
     private[scope] case class TArray(index: Int, tail: TraverseOp) extends TraverseOp {
       override def next(state: State, hc: HCursor): (TraverseState, ACursor) =
         if (index >= 0)
-          (
-            (state, TCheck(
-              TUp(
-                this.copy(index - 1)
-              )
+          ((state, TCheck(
+            TUp(
+              this.copy(index - 1)
             )
-              ), hc.downN(index)
-            )
+          )), hc.downN(index))
         else
           ((state, tail), hc.acursor)
     }
@@ -48,25 +46,24 @@ package object scope {
       override def next(state: State, hc: HCursor): (TraverseState, ACursor) = if (fields.isEmpty)
         ((state, tail), hc.acursor)
       else
-        (
-          (
-            state,
-            TCheck(
-              TUp(
-                this.copy(fields.tail)
-              )
-            ))
-          , hc.downField(fields.head)
-          )
+        ((state,
+          TCheck(
+            TUp(
+              this.copy(fields.tail)
+            )
+          )), hc.downField(fields.head))
     }
 
 
-    private[scope] def treeTraverser(state: TraverseState, hc: HCursor): (TraverseState, ACursor) = state._2.next(state._1,
-      hc)
+    private[scope] def treeTraverser(state: TraverseState, hc: HCursor): (TraverseState, ACursor) =
+      state._2.next(state._1, hc)
 
-    private[scope] def childScope(parent: URI, sub: URI) = ReferenceResolver.resolve(parent, sub)
+    private[scope] def childScope(parent: URI, sub: URI) = JsonPointer.resolveAsPointer(parent, sub)
 
-    private[scope] def parseUri(s: String): String \/ URI = \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s))).leftMap(_.getMessage)
+    private[scope] def parseUri(s: String): String \/ URI =
+      \/
+        .fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s)))
+        .leftMap(_.getMessage)
 
     private[scope] def getId(json: Json): Option[String \/ URI] =
       for {

@@ -1,8 +1,10 @@
 package json.pointer
 
+import java.net.URI
+
 import scala.util.parsing.combinator.Parsers
 import scala.util.parsing.input.CharSequenceReader
-import scala.util.{Try, Failure => TryFailure, Success => TrySuccess}
+import scala.util.{Failure => TryFailure, Success => TrySuccess, Try}
 
 /**
  * Based on code from https://github.com/plasmaconduit/json-pointer/blob/master/src/main/scala/com/plasmaconduit/jsonpointer/JsonPointer.scala
@@ -47,11 +49,11 @@ object JsonPointer extends Parsers {
     case _ ~ c => c
   }
 
-  val string = rep(escapedSeparator | escapedTilde | notSeparator ) ^^ {
+  val string = rep(escapedSeparator | escapedTilde | notSeparator) ^^ {
     case list => JsonPointerStringStep(list.mkString)
   }
 
-  val step = separator ~> (numeric | string )
+  val step = separator ~> (numeric | string)
 
   def parser: Parser[Try[JsonPointer]] = phrase(rep1(step)) ^^ {
     case x :: xs => TrySuccess(stepsToJsonPointer(x :: xs))
@@ -59,6 +61,12 @@ object JsonPointer extends Parsers {
   }
 
   val root: JsonPointer = JsonPointer(JsonPointerRootStep, None)
+
+  private def stepsToJsonPointer(steps: Seq[JsonPointerStep]): JsonPointer = {
+    (steps.dropRight(1) :\ JsonPointer(steps.last, None)) { (m, n) =>
+      JsonPointer(m, Some(n))
+    }
+  }
 
   def apply(pointer: String): Try[JsonPointer] = {
     if (pointer.isEmpty)
@@ -70,10 +78,16 @@ object JsonPointer extends Parsers {
       }
   }
 
-  private def stepsToJsonPointer(steps: Seq[JsonPointerStep]): JsonPointer = {
-    (steps.dropRight(1) :\ JsonPointer(steps.last, None)) { (m, n) =>
-      JsonPointer(m, Some(n))
-    }
+  def apply(uriPointer: URI): Try[JsonPointer] =
+    Option(uriPointer.getFragment)
+      .map(apply)
+      .getOrElse(TrySuccess(root))
+
+
+  def resolveAsPointer(parent: URI, sub: URI): URI = {
+    val resolved = parent.resolve(sub)
+    val fragment = Option(resolved.getFragment)
+    if (fragment.isEmpty || fragment.exists(_.isEmpty)) resolved.resolve("#") else resolved
   }
 
 }

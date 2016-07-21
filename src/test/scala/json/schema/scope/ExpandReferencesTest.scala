@@ -10,7 +10,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class ExpandReferencesTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 
 
-  def expand(s: String) = s.parse.flatMap(r => ExpandReferences.expand(new URI("http://x.y.z/rootschema.json#"), r.hcursor)).validation
+  def expand(s: String) = s.parse.flatMap(r => ExpandReferences.expand(new URI("http://x.y.z/rootschema.json#"), r)).validation
 
   ExpandReferences.getClass.getName should "expand references to absolute based on parent scopes" in {
 

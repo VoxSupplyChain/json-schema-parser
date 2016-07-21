@@ -53,9 +53,15 @@ trait ScopeDiscovery extends JsonTraverser {
     override def next(state: State, hc: HCursor): (TraverseState, ACursor) = ((state, TResult(\/-(state.scopes))), hc.acursor)
   }
 
-  def scopes(rootScope: URI, hcursor: HCursor): String \/ Map[URI, Json] = {
-    val init: (State, TraverseOp) = (ScopeState(rootScope, Map(rootScope -> hcursor.focus)), TCheck(TReturn))
-    hcursor.traverseUntilDone(init)(treeTraverser) match {
+  /**
+   * Builds a map of identified json objects (json objects with ID).
+   * @param rootScope
+   * @param json
+   * @return  error or a map of ids to json objects.
+   */
+  def scopes(rootScope: URI, json: Json): String \/ Map[URI, Json] = {
+    val init: (State, TraverseOp) = (ScopeState(rootScope, Map(rootScope -> json)), TCheck(TReturn))
+    json.hcursor.traverseUntilDone(init)(treeTraverser) match {
       case (state, TResult(result)) => result
       case _ => -\/("json traversal is incomplete")
     }

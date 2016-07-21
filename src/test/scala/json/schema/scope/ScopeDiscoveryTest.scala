@@ -35,7 +35,7 @@ class ScopeDiscoveryTest extends FlatSpec with GeneratorDrivenPropertyChecks wit
       |}
       | """.stripMargin.parseWith(j => j, e => throw new IllegalArgumentException("Json invalid" + e))
 
-  val map = ScopeDiscovery.scopes(new URI("http://myuri"), r.hcursor).validation
+  val map = ScopeDiscovery.scopes(new URI("http://myuri"), r).validation
 
   ScopeDiscovery.getClass.getName should "override root scope" in {
 
@@ -74,7 +74,7 @@ class ScopeDiscoveryTest extends FlatSpec with GeneratorDrivenPropertyChecks wit
         |    }
         |}""".stripMargin.parseWith(j => j, e => throw new IllegalArgumentException("Json invalid" + e))
 
-    val map = ScopeDiscovery.scopes(new URI("http://myuri"), r.hcursor).validation
+    val map = ScopeDiscovery.scopes(new URI("http://myuri"), r).validation
 
     map.map(_(new URI("http://myuri"))) shouldBe Success(r)
   }

@@ -9,7 +9,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz.Success
 
-class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
+class JsonPointerResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 
   val json =
     """
@@ -21,28 +21,29 @@ class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChe
       |}
     """.stripMargin.parse.validation.getOrElse(throw new IllegalArgumentException)
 
-  JsonPointerDecodeJson.getClass.toString should " / points to root " in {
-    JsonPointerDecodeJson(JsonPointer("").get)(json.hcursor).toDisjunction.validation shouldBe Success(json)
+  JsonPointerResolver.getClass.toString should " / points to root " in {
+    JsonPointerResolver(JsonPointer("").get)(json).validation shouldBe Success(json)
   }
 
   it should " /<key> points to a node " in {
-    JsonPointerDecodeJson(JsonPointer("/a/b").get)(json.hcursor).toDisjunction.validation shouldBe Success(jNumber(1))
+    JsonPointerResolver(JsonPointer("/a/b").get)(json).validation shouldBe Success(jNumber(1))
   }
 
   it should " /<key>/<number> points to an array " in {
-    JsonPointerDecodeJson(JsonPointer("/a/c/2").get)(json.hcursor).toDisjunction.validation shouldBe Success(jNumber(3))
+    JsonPointerResolver(JsonPointer("/a/c/2").get)(json).validation shouldBe Success(jNumber(3))
   }
 
   it should " fail for /<unknown> " in {
-    JsonPointerDecodeJson(JsonPointer("/f").get)(json.hcursor).toDisjunction.validation should containFailure("f not found")
+    JsonPointerResolver(JsonPointer("/f").get)(json).validation should containFailure("f not found")
   }
 
   it should " fail for array index out of bounds /a/c/<unknown> " in {
-    JsonPointerDecodeJson(JsonPointer("/a/c/10").get)(json.hcursor).toDisjunction.validation should containFailure("10 not found")
+    JsonPointerResolver(JsonPointer("/a/c/10").get)(json).validation should containFailure("10 not found")
   }
 
   it should " satisfy example from the JSON-Pointer spec " in {
-    val sampleFromSpec = """{
+    val sampleFromSpec =
+      """{
       "foo": ["bar", "baz"],
       "": 0,
       "a/b": 1,
@@ -70,13 +71,14 @@ class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChe
       ("/m~0n", jNumber(8))
     ) foreach {
       fe =>
-        JsonPointerDecodeJson(JsonPointer(fe._1).get)(sampleFromSpec.hcursor).toDisjunction.validation shouldBe Success(fe._2)
+        JsonPointerResolver(JsonPointer(fe._1).get)(sampleFromSpec).validation shouldBe Success(fe._2)
     }
 
   }
 
   it should " satisfy URI encoded examples from the JSON-Pointer spec " in {
-    val sampleFromSpec = """{
+    val sampleFromSpec =
+      """{
       "foo": ["bar", "baz"],
       "": 0,
       "a/b": 1,
@@ -104,7 +106,7 @@ class JsonPointerDecodeJsonTest extends FlatSpec with GeneratorDrivenPropertyChe
       (new URI("#/m~0n"), jNumber(8))
     ) foreach {
       fe =>
-        JsonPointerDecodeJson(fe._1).validation flatMap (d => d(sampleFromSpec.hcursor).toDisjunction.validation) shouldBe Success(fe._2)
+        JsonPointerResolver(fe._1)(sampleFromSpec).validation shouldBe Success(fe._2)
     }
 
   }

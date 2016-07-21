@@ -5,61 +5,78 @@ import java.net.URI
 import argonaut.Argonaut._
 import argonaut.{DecodeJson, Json}
 import json.reference.ReferenceResolver
-import json.reference.ReferenceResolver.Loader
-import json.schema.scope.{ExpandReferences, ScopeDiscovery}
+import json.schema.scope.{ScopeDiscovery, ExpandReferences}
 import json.source.JsonSource
 
 import scala.collection.immutable.Stack
 import scalaz._
+import scalaz.std.string._
+import scalaz.syntax.show._
 
-class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
+/**
+ * Resolves references using predefined map of scopes first and then using standard resolution.
+ * @param resolutionScope
+ */
+class ScopeReferenceResolver(resolutionScope: Map[URI, Json]) extends ReferenceResolver {
 
-  def schemaDecoder(uri: URI): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] = JsonSchemaDecoderFactory[N](uri)
-
-  def read[T: JsonSource](addr: T)(implicit source: JsonSource[T]): String \/ Json = source.json(addr).flatMap {
-    json =>
-
-      val cachingUriSource = JsonSource.cached(implicitly[JsonSource[URI]])
-
-      val rootUri: URI = source.uri(addr)
+  override protected val defaultLoader: Loader = {
+    reference: URI =>
+      val referenceRootDoc = reference.resolve("#")
       for {
-        expandedJson <- ExpandReferences.expand(rootUri, json.hcursor)
-        idMap <- ScopeDiscovery.scopes(rootUri, expandedJson.hcursor)
-        local: ReferenceResolver = new ReferenceResolver(defaultLoader = {
-          reference: URI =>
-            val referenceRootDoc = reference.resolve("#")
-            for {
-              result <- idMap.get(reference).map((_, referenceRootDoc)).orElse(idMap.get(referenceRootDoc).map((_, reference)))
-                .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j)) orElse cachingUriSource.json(reference).map((_, reference))
-              expandedResult <- ExpandReferences.expand(result._2, result._1.hcursor)
-            } yield (expandedResult, result._2)
+        (resultJson, resultRef) <- {
+          // try to resolve from ID scopes first
+          val scopedResult = resolutionScope
+            .get(reference)
+            .map((_, referenceRootDoc))
+            .orElse(resolutionScope.get(referenceRootDoc).map((_, reference)))
+            .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j))
 
-        }) {
-
-          override def resolveReference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): \/[String, Json] = {
-            // preserve the reference used for loading the json in the *id* field, so it is know where the node came from.
-            super.resolveReference(reference, rootURI, loader, inprogress).map(result => jsonWithId(result, reference))
-          }
-
+          scopedResult orElse super.defaultLoader(reference)
         }
-        resolved <- local.resolvePointer(rootUri, expandedJson, rootUri, Stack.empty)
-      } yield resolved
+        expandedResult <- ExpandReferences.expand(resultRef, resultJson)
+      } yield (expandedResult, resultRef)
+  }
+
+  override def dereference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): \/[String, Json] = {
+    // preserve the reference used for loading the json in the *id* field, so it is know where the node came from.
+    super.dereference(reference, rootURI, loader, inprogress).map(result => jsonWithId(result, reference))
   }
 
   private def jsonWithId(json: Json, id: URI): Json = json.withObject {
     j =>
-      val updatedJ = if (j.fields.contains("id"))
+      if (j.fields.contains("id"))
         j
       else
-        j + ("id", jString(id.toString))
-      updatedJ
+        j +("id", jString(id.toString))
   }
 
-  import Scalaz._
+}
 
-  private def parseToSchema(uri: URI)(j: Json) = j.jdecode(schemaDecoder(uri)).toDisjunction.leftMap(r => r._1 + ": " + r._2.shows)
+class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
 
-  def parse[T: JsonSource](source: T): String \/ SchemaDocument[N] = read(source).flatMap(parseToSchema(implicitly[JsonSource[T]].uri(source)))
+  def parse[T: JsonSource](addr: T): String \/ SchemaDocument[N] =
+    read(addr)
+      .flatMap(parseToSchema(addr))
+
+  def read[T: JsonSource](addr: T)(implicit source: JsonSource[T]): String \/ Json = source.json(addr).flatMap {
+    json =>
+      val rootUri: URI = source.uri(addr)
+      for {
+        expandedJson <- ExpandReferences.expand(rootUri, json)
+        scopeMap <- ScopeDiscovery.scopes(rootUri, expandedJson)
+        local: ReferenceResolver = new ScopeReferenceResolver(scopeMap)
+        resolved <- local.dereferenceInline(rootUri, expandedJson, rootUri, Stack.empty)
+      } yield resolved
+  }
+
+  private def parseToSchema[T: JsonSource](addr: T)(json: Json) =
+    json
+      .jdecode(schemaDecoder(addr))
+      .toDisjunction
+      .leftMap(r => r._1 + ": " + r._2.shows)
+
+  private def schemaDecoder[T: JsonSource](addr: T)(implicit src: JsonSource[T]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] =
+    JsonSchemaDecoderFactory[N](src.uri(addr))
 
 }
 

@@ -11,14 +11,10 @@ import scalaz._
 
 class ReferenceTraverserTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers {
 
-  object SetNullTraverser extends ReferenceTraverser {
-    override def resolve: (URI) => \/[String, Json] = _ => \/-(jNull)
-  }
-
   import argonaut.Argonaut._
   import argonaut._
 
-  def replaceRefWithNull(json: Json) = SetNullTraverser.traverse(json.hcursor)
+  def replaceRefWithNull(json: Json) = ReferenceTraverser.NullTraverser.traverse(json.hcursor)
 
   def shouldNotChange(json: String) = {
     val j = json.stripMargin.parseOption.get

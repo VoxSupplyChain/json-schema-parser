@@ -7,6 +7,10 @@ import argonaut.{ACursor, HCursor, Json}
 
 import scalaz.{-\/, \/, \/-}
 
+/**
+ * Expands relative references and Ids in a JSON document.
+ * See http://json-schema.org/latest/json-schema-core.html
+ */
 trait ExpandReferences extends JsonTraverser {
 
   // current scope uri
@@ -59,9 +63,15 @@ trait ExpandReferences extends JsonTraverser {
     override def next(state: State, hc: HCursor): (TraverseState, ACursor) = ((state, TResult(\/-(hc.focus))), hc.acursor)
   }
 
-  def expand(rootScope: URI, hcursor: HCursor): String \/ Json = {
+  /**
+   * expands relative references and Ids, using the root scope (of the original document).
+   * @param rootScope URI of this the given JSON
+   * @param json JSON document
+   * @return error or modified JSON
+   */
+  def expand(rootScope: URI, json: Json): String \/ Json = {
     val init: (State, TraverseOp) = (rootScope, TCheck(TReturn))
-    hcursor.traverseUntilDone(init)(treeTraverser) match {
+    json.hcursor.traverseUntilDone(init)(treeTraverser) match {
       case (state, TResult(result)) => result
       case _ => -\/("json traversal is incomplete")
     }

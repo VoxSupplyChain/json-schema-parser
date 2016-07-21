@@ -8,9 +8,14 @@ import argonaut.{ACursor, HCursor, Json}
 import scala.util.control.Exception
 import scalaz._
 
+/**
+ * Traverser that replaces all $ref with a resolved Json value.
+ */
 trait ReferenceTraverser {
 
-  def resolve: URI => String \/ Json
+  private type TraverseState = TraverseOp
+
+  def resolve(ref: URI): String \/ Json
 
   private sealed trait TraverseOp {
     def next(hc: HCursor): (TraverseState, ACursor)
@@ -45,25 +50,21 @@ trait ReferenceTraverser {
     override def next(hc: HCursor): (TraverseState, ACursor) = if (fields.isEmpty)
       (tail, hc.acursor)
     else
-      (
-        TCheck(
-          TUp(
-            this.copy(fields.tail)
-          )
-        ), hc.downField(fields.head)
+      (TCheck(
+        TUp(
+          this.copy(fields.tail)
         )
+      ), hc.downField(fields.head))
   }
 
   private sealed case class TArray(index: Int, tail: TraverseOp) extends TraverseOp {
     override def next(hc: HCursor): (TraverseState, ACursor) =
       if (index >= 0)
-        (
-          TCheck(
-            TUp(
-              this.copy(index - 1)
-            )
-          ), hc.downN(index)
+        (TCheck(
+          TUp(
+            this.copy(index - 1)
           )
+        ), hc.downN(index))
       else
         (tail, hc.acursor)
   }
@@ -76,9 +77,9 @@ trait ReferenceTraverser {
     override def next(hc: HCursor): (TraverseState, ACursor) = (TResult(\/-(hc.focus)), hc.acursor)
   }
 
-  private type TraverseState = TraverseOp
-
-  private def parseUri(s: String): String \/ URI = \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s))).leftMap(_.getMessage)
+  private def parseUri(s: String): String \/ URI =
+    \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s)))
+      .leftMap(_.getMessage)
 
   private def jsonReference(json: Json): Option[String \/ URI] =
     for {
@@ -94,6 +95,17 @@ trait ReferenceTraverser {
       case TResult(result) => result
       case _ => -\/("json traversal is incomplete")
     }
+  }
+
+}
+
+object ReferenceTraverser {
+
+  /**
+   * Removes all $ref references.
+   */
+  object NullTraverser extends ReferenceTraverser {
+    override def resolve(uri: URI): String \/ Json = \/-(jNull)
   }
 
 }

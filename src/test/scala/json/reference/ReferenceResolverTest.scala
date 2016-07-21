@@ -22,11 +22,11 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
       }
     }
 
-  def shouldResolve(from: String, to: String) = ReferenceResolver(from.stripMargin) shouldBe to.stripMargin.parse
+  def shouldResolve(from: String, to: String) = ReferenceResolver.resolveFrom(from.stripMargin) shouldBe to.stripMargin.parse
 
-  def shouldResolve(from: File, to: String) = ReferenceResolver(from) shouldBe to.stripMargin.parse
+  def shouldResolve(from: File, to: String) = ReferenceResolver.resolveFrom(from) shouldBe to.stripMargin.parse
 
-  def shouldFailResolve(from: String, containErr: String) = ReferenceResolver(from.stripMargin) should containLeft(containErr)
+  def shouldFailResolve(from: String, containErr: String) = ReferenceResolver.resolveFrom(from.stripMargin) should containLeft(containErr)
 
 
   ReferenceResolver.getClass.toString should "not change json doc if no references" in {
