@@ -13,12 +13,17 @@ Features:
  * expands ids to absolute uris
  * results in Schema tree
  * command line schema validator
- * 
  
- 
+Also includes implementation of:
+
+ * JSON pointer 
+ * JSON reference 
  
  ### JSON-Schema Validator Command line
- 
-    java -jar json-schema-parser-assembly-0.0.6-SNAPSHOT.jar <schema-uri-or-path>
-    
+Pull the latest tag from Github, and then:
+
+```
+$ sbt assembly
+$ java -jar target/scala-2.10/json-schema-parser-assembly-0.9.0.jar <schema-uri-or-path>
+```
  
