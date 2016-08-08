@@ -7,6 +7,7 @@ import argonaut.Argonaut._
 import argonaut._
 
 import scala.util.matching.Regex
+import scalaz.NonEmptyList
 
 
 trait Decoders extends DecodeJsons {
@@ -50,17 +51,17 @@ trait Decoders extends DecodeJsons {
         }
     })
 
-  def nonEmptyListDecodeJson[A](implicit e: DecodeJson[A]): DecodeJson[List[A]] =
+  implicit def nonEmptyListDecodeJson[A: DecodeJson]: DecodeJson[NonEmptyList[A]] =
     implicitly[DecodeJson[List[A]]] flatMap {
       list =>
-        if (list.nonEmpty) DecodeJson(_ => DecodeResult.ok(list))
-        else DecodeJson[List[A]](c => DecodeResult.fail("[A]List[A]", c.history))
+        if (list.nonEmpty) DecodeJson(_ => DecodeResult.ok(NonEmptyList.nel(list.head, list.tail)))
+        else DecodeJson[NonEmptyList[A]](c => DecodeResult.fail("[A]NonEmptyList[A]", c.history))
     } setName "[A]List[A]"
 
-  def oneOrNonEmptyList[T](implicit e: DecodeJson[T]): DecodeJson[List[T]] =
-    nonEmptyListDecodeJson[T] ||| e.map(List(_))
+  def oneOrNonEmptyList[T](implicit e: DecodeJson[T]): DecodeJson[NonEmptyList[T]] =
+    nonEmptyListDecodeJson[T] ||| e.map(NonEmptyList(_))
 
-  def setDecodeJsonStrict[A](implicit e: DecodeJson[A]): DecodeJson[Set[A]] =
+  def setDecodeJsonStrict[A: DecodeJson]: DecodeJson[Set[A]] =
     implicitly[DecodeJson[List[A]]] flatMap {
       list =>
         val set = list.toSet
@@ -68,8 +69,8 @@ trait Decoders extends DecodeJsons {
         else DecodeJson[Set[A]](c => DecodeResult.fail("[A]List[A]", c.history))
     } setName "[A]Set[A]"
 
-  def nonEmptySetDecodeJsonStrict[A](implicit e: DecodeJson[A]): DecodeJson[Set[A]] =
-    setDecodeJsonStrict[A](e) flatMap {
+  def nonEmptySetDecodeJsonStrict[A: DecodeJson]: DecodeJson[Set[A]] =
+    setDecodeJsonStrict[A] flatMap {
       set =>
         if (set.nonEmpty) DecodeJson(_ => DecodeResult.ok(set))
         else DecodeJson[Set[A]](c => DecodeResult.fail("[A]Set[A]", c.history))
@@ -79,7 +80,7 @@ trait Decoders extends DecodeJsons {
   def oneOrSetStrict[T](implicit e: DecodeJson[T]): DecodeJson[Set[T]] =
     nonEmptySetDecodeJsonStrict[T] ||| e.map(Set(_))
 
-  def either[A, B](x: => DecodeJson[A], y: => DecodeJson[B]): DecodeJson[Either[A, B]] =
+  implicit def either[A, B](implicit x: DecodeJson[A], y: DecodeJson[B]): DecodeJson[Either[A, B]] =
     DecodeJson(c => {
       val q: DecodeResult[Either[A, B]] = x(c).map(Left(_))
       q.result.fold(_ => y(c).map(Right(_)), _ => q)

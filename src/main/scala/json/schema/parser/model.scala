@@ -5,10 +5,10 @@ import java.net.URI
 import argonaut.Json
 
 import scala.util.matching.Regex
+import scalaz.NonEmptyList
 
 
-
-  object SimpleType extends Enumeration {
+object SimpleType extends Enumeration {
     type SimpleType = Value
     val array, boolean, integer, number, string = Value
     val `null` = Value("null")
@@ -45,7 +45,7 @@ import scala.util.matching.Regex
 
   case class RangeConstrain[T](max: Option[T] = None, min: Option[T] = None)
 
-  case class ConstrainedList[T](value: List[T], sizeConstrain: RangeConstrain[Inclusive[Int]])
+  case class ConstrainedList[T](value: NonEmptyList[T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
   case class ConstrainedMap[T](value: Map[String, T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
