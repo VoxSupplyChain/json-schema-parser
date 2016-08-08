@@ -1,5 +1,4 @@
-json-schema-parser
-==================
+# json-schema-parser
 
 [![CircleCI](https://circleci.com/gh/VoxSupplyChain/json-schema-parser.svg?style=svg)](https://circleci.com/gh/VoxSupplyChain/json-schema-parser)
 
@@ -19,7 +18,7 @@ Also includes implementation of:
  * JSON pointer 
  * JSON reference 
  
- ### JSON-Schema Validator Command line
+### JSON-Schema Validator Command line
 Pull the latest tag from Github, and then:
 
 ```
@@ -27,3 +26,11 @@ $ sbt assembly
 $ java -jar target/scala-2.10/json-schema-parser-assembly-0.9.0.jar <schema-uri-or-path>
 ```
  
+### Reference
+
+ * http://json-schema.org/latest/json-schema-core.html
+ * http://json-schema.org/latest/json-schema-validation.html
+ 
+### Used in
+
+ * https://github.com/VoxSupplyChain/json-schema-codegen
