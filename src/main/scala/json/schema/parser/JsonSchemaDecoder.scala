@@ -5,18 +5,17 @@ import java.net.URI
 
 import argonaut.{DecodeJson, DecodeResult, HCursor, Json}
 import json.pointer.JsonPointer
-import json.reference.ReferenceResolver
 import json.schema.parser.SimpleType.SimpleType
 
 import scala.util.matching.Regex
 
 
-class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]) {
+class JsonSchemaDecoder[N] protected (parentId: URI, rootSchema: Boolean)(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]) extends DecodeJson[SchemaDocument[N]] with Decoders {
+
+  import json.schema.parser.JsonSchemaDecoder._
 
   type Schema = SchemaDocument[N]
 
-  import json.schema.parser.JsonSchemaDecoderFactory._
-  import json.schema.parser.SchemaDecoders._
 
   private def validated[A](c: HCursor, successCondition: A => Boolean, err: => String): (A) => DecodeResult[A] = {
     v: A => if (successCondition(v)) DecodeResult.ok(v) else DecodeResult.fail(v.toString + err, c.history)
@@ -31,7 +30,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
   private def isPositive(a: N): Boolean = valueNumeric.compare(a, valueNumeric.zero) > 0
 
   private def nestedSchemas(c: HCursor)(nestedDocumentDecoder: DecodeJson[Schema]) =
-    c.fieldSet.getOrElse(List.empty).filterNot(schemaFields.contains).foldLeft(DecodeResult.ok(Map.empty[String, Schema])) {
+    c.fieldSet.getOrElse(List.empty).filterNot(schemaReservedFields.contains).foldLeft(DecodeResult.ok(Map.empty[String, Schema])) {
       (result: DecodeResult[Map[String, Schema]], f: String) =>
         result flatMap {
           (r: Map[String, Schema]) =>
@@ -42,7 +41,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
 
   private def isValidId(uri: URI) = !uri.toString.isEmpty
 
-  private def isValidSchema(uri: URI) = schemaVersions.contains(uri)
+  private def isValidSchema(uri: URI) = validSchemaVersions.contains(uri)
 
 
   private def numberType(c: HCursor): DecodeResult[NumberConstraint[N]] = {
@@ -76,7 +75,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
     )
   }
 
-  private def objectType(c: HCursor, scope: URI)(implicit nestedDocumentDecoder: DecodeJson[Schema]) = {
+  private def objectType(c: HCursor, scope: URI)(implicit nestedDocumentDecoder: DecodeJson[Schema]): DecodeResult[ObjectConstraint[N]] = {
     val mapOfSchemas = (c: HCursor, field: String) => c.get[Map[String, Schema]](field)(MapDecodeJson).option
     val additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
     for {
@@ -88,8 +87,8 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
     } yield {
       val requiredField = requiredPropNames.getOrElse(Set.empty)
 
-      ObjectConstraint(
-        additionalProps.flatMap(_.fold(v => if (v) Some(SchemaDocument.empty(scope)(valueNumeric)) else None, Some(_))),
+      ObjectConstraint[N](
+        additionalProps.flatMap(_.fold[Option[Schema]](v => if (v) Some(SchemaDocument[N](scope)) else None, Option(_))),
         ConstrainedMap(
           properties.getOrElse(Map.empty).map((kv) => kv._1 -> Property(requiredField.contains(kv._1), kv._2)),
           propsConstrain.getOrElse(noIntConstain)),
@@ -98,7 +97,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
     }
   }
 
-  def apply(parentId: URI, rootSchema: Boolean): DecodeJson[Schema] = DecodeJson { c =>
+  def decode(c: HCursor): DecodeResult[Schema] = {
     val types: Set[SimpleType] = c.get[Set[SimpleType.SimpleType]]("type")(oneOrSetStrict).getOr(Set.empty[SimpleType])
     def when[T](t: SimpleType.SimpleType)(f: => DecodeResult[T]): DecodeResult[Option[T]] = if (types.contains(t)) f.option else DecodeResult.ok(None)
 
@@ -112,7 +111,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       // handy methods to decode common types
       scope: URI = if (rootSchema) id.getOrElse(parentId) else id.fold(parentId)(JsonPointer.resolveAsPointer(parentId, _))
 
-      nestedDocumentDecoder: DecodeJson[Schema] = apply(scope, rootSchema = false)
+      nestedDocumentDecoder: DecodeJson[Schema] = new JsonSchemaDecoder[N](parentId = scope, rootSchema = false)
       additionalDecoder = either(implicitly[DecodeJson[Boolean]], nestedDocumentDecoder)
       listOfSchemas = (c: HCursor, field: String) => c.get[List[Schema]](field)(oneOrNonEmptyList(nestedDocumentDecoder)).option
       mapOfSchemas = (c: HCursor, field: String) => {
@@ -139,7 +138,7 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
       nested <- nestedSchemas(c)(nestedDocumentDecoder)
     } yield {
       SchemaDocument(
-        id, scope, schema,
+        scope, id, schema,
         number, string, array, obj,
         // common properties
         enums.getOrElse(Set.empty), nested,
@@ -152,11 +151,11 @@ class JsonSchemaDecoderFactory[N](valueNumeric: Numeric[N], numberDecoder: Decod
   }
 }
 
-object JsonSchemaDecoderFactory {
+object JsonSchemaDecoder {
 
   private val noIntConstain = RangeConstrain[Inclusive[Int]]()
 
-  private val schemaFields = Set(
+  private val schemaReservedFields = Set(
     "id", "title", "$schema",
     "description", "default",
     "multipleOf",
@@ -175,8 +174,7 @@ object JsonSchemaDecoderFactory {
     "not"
   )
 
-  private val schemaVersions = Set(new URI("http://json-schema.org/schema#"), new URI("http://json-schema.org/draft-04/schema#"))
+  private val validSchemaVersions = Set(new URI("http://json-schema.org/schema#"), new URI("http://json-schema.org/draft-04/schema#"))
 
-  def apply[N](uri: URI = new URI("#"))(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] =
-    new JsonSchemaDecoderFactory(valueNumeric, numberDecoder).apply(uri, rootSchema = true)
+  def apply[N : Numeric : DecodeJson](parentId: URI = new URI("#")) =  new JsonSchemaDecoder(parentId, rootSchema = true)
 }

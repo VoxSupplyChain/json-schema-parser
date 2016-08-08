@@ -9,7 +9,7 @@ import argonaut._
 import scala.util.matching.Regex
 
 
-object SchemaDecoders extends DecodeJsons {
+trait Decoders extends DecodeJsons {
 
   implicit lazy val RegexDecoder: DecodeJson[Regex] = StringDecodeJson.map(_.r)
 
@@ -39,7 +39,9 @@ object SchemaDecoders extends DecodeJsons {
     })
 
   implicit lazy val SimpleTypeCodec: CodecJson[SimpleType.SimpleType] =
-    CodecJson[SimpleType.SimpleType]((v: SimpleType.SimpleType) => v.toString.asJson, (j: HCursor) => j.as[String].flatMap {
+    CodecJson[SimpleType.SimpleType](
+    (v: SimpleType.SimpleType) => v.toString.asJson,
+    (j: HCursor) => j.as[String].flatMap {
       s: String =>
         try {
           DecodeResult.ok(SimpleType.withName(s))
@@ -55,7 +57,8 @@ object SchemaDecoders extends DecodeJsons {
         else DecodeJson[List[A]](c => DecodeResult.fail("[A]List[A]", c.history))
     } setName "[A]List[A]"
 
-  def oneOrNonEmptyList[T](implicit e: DecodeJson[T]): DecodeJson[List[T]] = nonEmptyListDecodeJson[T] ||| e.map(List(_))
+  def oneOrNonEmptyList[T](implicit e: DecodeJson[T]): DecodeJson[List[T]] =
+    nonEmptyListDecodeJson[T] ||| e.map(List(_))
 
   def setDecodeJsonStrict[A](implicit e: DecodeJson[A]): DecodeJson[Set[A]] =
     implicitly[DecodeJson[List[A]]] flatMap {
@@ -73,7 +76,8 @@ object SchemaDecoders extends DecodeJsons {
     } setName "[A]Set[A]"
 
 
-  def oneOrSetStrict[T](implicit e: DecodeJson[T]): DecodeJson[Set[T]] = nonEmptySetDecodeJsonStrict[T] ||| e.map(Set(_))
+  def oneOrSetStrict[T](implicit e: DecodeJson[T]): DecodeJson[Set[T]] =
+    nonEmptySetDecodeJsonStrict[T] ||| e.map(Set(_))
 
   def either[A, B](x: => DecodeJson[A], y: => DecodeJson[B]): DecodeJson[Either[A, B]] =
     DecodeJson(c => {

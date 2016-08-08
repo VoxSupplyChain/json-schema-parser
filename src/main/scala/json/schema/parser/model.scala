@@ -1,4 +1,4 @@
-package json.schema
+package json.schema.parser
 
 import java.net.URI
 
@@ -7,7 +7,6 @@ import argonaut.Json
 import scala.util.matching.Regex
 
 
-package object parser {
 
   object SimpleType extends Enumeration {
     type SimpleType = Value
@@ -65,53 +64,36 @@ package object parser {
                                   )
 
   case class SchemaDocument[N](
-                                id: Option[URI],
                                 scope: URI,
-                                schema: Option[URI],
+                                id: Option[URI] = None,
+                                schema: Option[URI] = None,
                                 // type specific constraints
-                                number: Option[NumberConstraint[N]],
-                                string: Option[StringConstraint],
-                                array: Option[ArrayConstraint[N]],
-                                obj: Option[ObjectConstraint[N]],
+                                number: Option[NumberConstraint[N]] = None,
+                                string: Option[StringConstraint] = None,
+                                array: Option[ArrayConstraint[N]] = None,
+                                obj: Option[ObjectConstraint[N]] = None,
 
                                 // common
-                                enums: Set[Json],
-                                nestedSchemas: Map[String, SchemaDocument[N]],
+                                enums: Set[Json] = Set.empty,
+                                nestedSchemas: Map[String, SchemaDocument[N]] = Map.empty[String, SchemaDocument[N]],
 
-                                title: Option[String],
-                                description: Option[String],
+                                title: Option[String] = None,
+                                description: Option[String] = None,
 
-                                format: Option[String],
+                                format: Option[String] = None,
 
-                                definitions: Map[String, SchemaDocument[N]],
-                                dependencies: Map[String, Either[SchemaDocument[N], Set[String]]],
-                                types: Set[SimpleType.SimpleType],
-                                anyOf: List[SchemaDocument[N]],
-                                allOf: List[SchemaDocument[N]],
-                                oneOf: List[SchemaDocument[N]],
-                                not: Option[SchemaDocument[N]]
+                                definitions: Map[String, SchemaDocument[N]] = Map.empty[String, SchemaDocument[N]],
+                                dependencies: Map[String, Either[SchemaDocument[N], Set[String]]] = Map.empty[String, Either[SchemaDocument[N], Set[String]]],
+                                types: Set[SimpleType.SimpleType] = Set.empty,
+                                anyOf: List[SchemaDocument[N]] = Nil,
+                                allOf: List[SchemaDocument[N]] = Nil,
+                                oneOf: List[SchemaDocument[N]] = Nil,
+                                not: Option[SchemaDocument[N]] = None
 
                                 ) {
     override def toString: String = {
-      val props = obj.map(_.properties.value.keys).getOrElse(Nil)
       val key = id.getOrElse(scope)
-      s"JsonSchema($key -> $props)"
+      s"JsonSchema($key)"
     }
   }
 
-  object SchemaDocument {
-    def empty[N](scope: URI)(implicit n: Numeric[N]): SchemaDocument[N] = {
-
-      SchemaDocument(
-        None, scope, None,
-        None, None,
-        None, None,
-        Set.empty,
-        Map.empty,
-        None, None, None, Map.empty, Map.empty, Set.empty, Nil, Nil, Nil, None
-      )
-    }
-
-  }
-
-}

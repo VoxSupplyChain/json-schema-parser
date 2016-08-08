@@ -54,10 +54,6 @@ class ScopeReferenceResolver(resolutionScope: Map[URI, Json]) extends ReferenceR
 
 class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
 
-  def parse[T: JsonSource](addr: T): String \/ SchemaDocument[N] =
-    read(addr)
-      .flatMap(parseToSchema(addr))
-
   def read[T: JsonSource](addr: T)(implicit source: JsonSource[T]): String \/ Json = source.json(addr).flatMap {
     json =>
       val rootUri: URI = source.uri(addr)
@@ -69,14 +65,18 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
       } yield resolved
   }
 
+  def parse[T: JsonSource](addr: T): String \/ SchemaDocument[N] =
+    read(addr)
+      .flatMap(parseToSchema(addr))
+
   private def parseToSchema[T: JsonSource](addr: T)(json: Json) =
     json
       .jdecode(schemaDecoder(addr))
       .toDisjunction
       .leftMap(r => r._1 + ": " + r._2.shows)
 
-  private def schemaDecoder[T: JsonSource](addr: T)(implicit src: JsonSource[T]): DecodeJson[JsonSchemaDecoderFactory[N]#Schema] =
-    JsonSchemaDecoderFactory[N](src.uri(addr))
+  private def schemaDecoder[T: JsonSource](addr: T)(implicit src: JsonSource[T]) =
+    JsonSchemaDecoder[N](parentId = src.uri(addr))
 
 }
 

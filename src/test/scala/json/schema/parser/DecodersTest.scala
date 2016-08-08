@@ -6,10 +6,9 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz.{Failure, Success}
 
-class SchemaDecodersTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers  {
+class DecodersTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with Decoders {
 
   import argonaut.Argonaut._
-  import SchemaDecoders._
 
   implicit val simpleTypes: Gen[SimpleType.Value] = Gen.oneOf(SimpleType.values.toList)
 
