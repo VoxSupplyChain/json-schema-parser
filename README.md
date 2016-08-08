@@ -17,6 +17,17 @@ Also includes implementation of:
 
  * JSON pointer 
  * JSON reference 
+
+### Use
+```
+ resolvers += Resolver.url(
+   "vox-public-ivy",
+   url("http://dl.bintray.com/content/voxsupplychain/ivy-public"))(
+     Resolver.ivyStylePatterns)
+ libraryDependencies ++= Seq(
+   "com.voxsupplychain" %% "json-schema-parser" % "0.9.0"
+   )
+```
  
 ### JSON-Schema Validator Command line
 Pull the latest tag from Github, and then:
