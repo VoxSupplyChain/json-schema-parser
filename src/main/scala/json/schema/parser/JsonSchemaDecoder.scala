@@ -9,11 +9,11 @@ import json.schema.parser.SimpleType.SimpleType
 
 import scala.util.matching.Regex
 import scalaz.NonEmptyList
+import json.schema.parser.JsonSchemaDecoder._
 
 
-class JsonSchemaDecoder[N] protected (parentId: URI, rootSchema: Boolean)(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]) extends DecodeJson[SchemaDocument[N]] with Decoders {
+class JsonSchemaDecoder[N] protected(parentId: URI, rootSchema: Boolean)(implicit valueNumeric: Numeric[N], numberDecoder: DecodeJson[N]) extends DecodeJson[SchemaDocument[N]] with Decoders {
 
-  import json.schema.parser.JsonSchemaDecoder._
 
   type Schema = SchemaDocument[N]
 
@@ -89,9 +89,14 @@ class JsonSchemaDecoder[N] protected (parentId: URI, rootSchema: Boolean)(implic
       ObjectConstraint[N](
         additionalProps.flatMap(_.fold[Option[Schema]](v => if (v) Some(SchemaDocument[N](scope)) else None, Option(_))),
         ConstrainedMap(
-          properties.getOrElse(Map.empty).map((kv) => kv._1 -> Property(requiredField.contains(kv._1), kv._2)),
-          propsConstrain.getOrElse(noIntConstain)),
-        patternProps.getOrElse(Map.empty).map((kv) => kv._1.r -> kv._2)
+          properties.getOrElse(Map.empty).map{
+            case (name, schema) => name -> Property(requiredField.contains(name), schema)
+          },
+          propsConstrain.getOrElse(noIntConstain)
+        ),
+        patternProps.getOrElse(Map.empty).map{
+          case (name, schema) => name.r -> schema
+        }
       )
     }
   }
@@ -120,7 +125,7 @@ class JsonSchemaDecoder[N] protected (parentId: URI, rootSchema: Boolean)(implic
       number <- when(SimpleType.number)(numberType(c))
       string <- when(SimpleType.string)(stringType(c))
       array <- when(SimpleType.array)(arrayType(c)(nestedDocumentDecoder))
-      obj <- when(SimpleType.`object`)(objectType(c, scope)(nestedDocumentDecoder))
+      obj <- when(SimpleType.aObject)(objectType(c, scope)(nestedDocumentDecoder))
       // sub documents with reference to this document id
       definitions <- mapOfSchemas(c, "definitions")
       dependencies <- {
@@ -174,5 +179,5 @@ object JsonSchemaDecoder {
 
   private val validSchemaVersions = Set(new URI("http://json-schema.org/schema#"), new URI("http://json-schema.org/draft-04/schema#"))
 
-  def apply[N : Numeric : DecodeJson](parentId: URI = new URI("#")) =  new JsonSchemaDecoder(parentId, rootSchema = true)
+  def apply[N: Numeric : DecodeJson](parentId: URI = new URI("#")) = new JsonSchemaDecoder(parentId, rootSchema = true)
 }

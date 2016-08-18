@@ -10,7 +10,7 @@ import scalaz.{Failure, Success}
 
 object JsonSchemaValidator {
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
 
     if (args.length==1) {
       val schemaUri = args(0)

@@ -15,7 +15,7 @@ import scalaz.syntax.show._
 
 /**
  * Resolves references using predefined map of scopes first and then using standard resolution.
- * @param resolutionScope
+ * @param resolutionScope scope used to resolve references
  */
 class ScopeReferenceResolver(resolutionScope: Map[URI, Json]) extends ReferenceResolver {
 

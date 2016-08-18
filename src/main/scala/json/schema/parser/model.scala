@@ -11,8 +11,8 @@ import scalaz.NonEmptyList
 object SimpleType extends Enumeration {
     type SimpleType = Value
     val array, boolean, integer, number, string = Value
-    val `null` = Value("null")
-    val `object` = Value("object")
+    val aNull = Value("null")
+    val aObject = Value("object")
   }
 
   object Format extends Enumeration {

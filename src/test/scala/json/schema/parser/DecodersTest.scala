@@ -42,13 +42,13 @@ class DecodersTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matc
   "SetDecodeJsonStrict" should "decode a valid set into a set" in {
     """
       |["string1", "string2"]
-    """.stripMargin.decodeValidation[Set[String]](setDecodeJsonStrict) shouldBe Success(Set("string1", "string2"))
+    """.stripMargin.decodeValidation[Set[String]](aSetDecodeJsonStrict) shouldBe Success(Set("string1", "string2"))
   }
 
   it should "fail decode a invalid set" in {
     """
       |["string1", "string2", "string1"]
-    """.stripMargin.decodeValidation[Set[String]](setDecodeJsonStrict) shouldBe Failure("[A]Set[A]: []")
+    """.stripMargin.decodeValidation[Set[String]](aSetDecodeJsonStrict) shouldBe Failure("[A]Set[A]: []")
   }
 
   "NonEmptySetDecodeJsonStrict" should "decode a valid set into a set" in {

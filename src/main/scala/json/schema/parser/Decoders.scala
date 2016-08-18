@@ -6,6 +6,7 @@ import java.util.NoSuchElementException
 import argonaut.Argonaut._
 import argonaut._
 
+import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 import scalaz.NonEmptyList
 
@@ -19,13 +20,13 @@ trait Decoders extends DecodeJsons {
     StringDecodeJson.flatMap {
       uri =>
         DecodeJson(
-          j => {
-            try {
+          j =>
+            Try {
               DecodeResult.ok(new URI(uri))
-            } catch {
-              case e: NoSuchElementException => DecodeResult.fail("Uri", j.history)
+            } match {
+              case Success(result) => result
+              case Failure(_) => DecodeResult.fail("Uri", j.history)
             }
-          }
         )
     })
 
@@ -61,7 +62,7 @@ trait Decoders extends DecodeJsons {
   def oneOrNonEmptyList[T](implicit e: DecodeJson[T]): DecodeJson[NonEmptyList[T]] =
     nonEmptyListDecodeJson[T] ||| e.map(NonEmptyList(_))
 
-  def setDecodeJsonStrict[A: DecodeJson]: DecodeJson[Set[A]] =
+  def aSetDecodeJsonStrict[A: DecodeJson]: DecodeJson[Set[A]] =
     implicitly[DecodeJson[List[A]]] flatMap {
       list =>
         val set = list.toSet
@@ -70,7 +71,7 @@ trait Decoders extends DecodeJsons {
     } setName "[A]Set[A]"
 
   def nonEmptySetDecodeJsonStrict[A: DecodeJson]: DecodeJson[Set[A]] =
-    setDecodeJsonStrict[A] flatMap {
+    aSetDecodeJsonStrict[A] flatMap {
       set =>
         if (set.nonEmpty) DecodeJson(_ => DecodeResult.ok(set))
         else DecodeJson[Set[A]](c => DecodeResult.fail("[A]Set[A]", c.history))

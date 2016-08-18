@@ -55,8 +55,8 @@ trait ScopeDiscovery extends JsonTraverser {
 
   /**
    * Builds a map of identified json objects (json objects with ID).
-   * @param rootScope
-   * @param json
+   * @param rootScope URI of the given json
+   * @param json JSON to build scope from
    * @return  error or a map of ids to json objects.
    */
   def scopes(rootScope: URI, json: Json): String \/ Map[URI, Json] = {
