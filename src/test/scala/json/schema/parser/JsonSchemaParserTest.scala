@@ -292,13 +292,13 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
   }
 
-  implicit val remoteCyclicSchemas = List(new URI("http://swagger.io/v2/schema.json"))
+  implicit val remoteCyclicSchemas: List[URI] = List(new URI("http://swagger.io/v2/schema.json"))
 
-  implicit val validSchemas = new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
+  implicit val validSchemas: List[File] = new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
     override def accept(dir: File, name: String): Boolean = name endsWith ".json"
   }).toList
 
-  implicit val cyclicSchemas = new File("src/test/resources/json/schema/parser/invalid").listFiles(new FilenameFilter {
+  implicit val cyclicSchemas: List[File] = new File("src/test/resources/json/schema/parser/recursive").listFiles(new FilenameFilter {
     override def accept(dir: File, name: String): Boolean = name endsWith ".json"
   }).toList
 
@@ -307,20 +307,12 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
   }
 
 
-  it should "fail to parse schemas with cyclic reference" in {
-    cyclicSchemas.map {
-      f: File =>
-        JsonSchemaParser.parse(f).validation
-    }.find(_.isFailure).get should containFailure("cyclic reference")
+  it should "parse remote schemas with cyclic reference" in {
+    forAll (remoteCyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
   }
 
 
-  it should "fail to parse remote schemas with cyclic reference" in {
-    remoteCyclicSchemas.map {
-      f: URI =>
-        JsonSchemaParser.parse(f).validation
-    }.find(_.isFailure).get should containFailure("cyclic reference")
+  it should "parse schemas with cyclic reference" in {
+    forAll (cyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
   }
-
-
 }

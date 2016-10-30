@@ -131,8 +131,8 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
 
   }
 
-  it should "fail to resolve cyclic references" in {
-    shouldFailResolve(
+  it should "resolve cyclic references" in {
+    shouldResolve(
       """
         |{
         | "a": {"$ref": "#/b"},
@@ -140,7 +140,13 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
         | "c": {"$ref": "#/a"}
         |}
       """,
-      "cyclic reference"
+      """
+        |{
+        | "a": {"$ref": "#/b"},
+        | "b": {"$ref": "#/c"},
+        | "c": {"$ref": "#/a"}
+        |}
+      """
     )
   }
 
