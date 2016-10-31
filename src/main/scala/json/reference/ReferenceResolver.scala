@@ -26,7 +26,7 @@ trait ReferenceResolver {
 
   protected def dereference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): String \/ Json =
     if (inprogress.contains(reference))
-      -\/(s"found cyclic reference: $reference")
+      \/-(Json("$ref" -> Json.jString(reference.toString)))
     else {
       // the refered Json document must be resolved as well
       loader(reference).flatMap {
