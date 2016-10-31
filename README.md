@@ -25,7 +25,7 @@ Also includes implementation of:
    url("http://dl.bintray.com/content/voxsupplychain/ivy-public"))(
      Resolver.ivyStylePatterns)
  libraryDependencies ++= Seq(
-   "com.voxsupplychain" %% "json-schema-parser" % "0.9.0"
+   "com.voxsupplychain" %% "json-schema-parser" % "0.11.0"
    )
 ```
  
@@ -34,7 +34,7 @@ Pull the latest tag from Github, and then:
 
 ```
 $ sbt assembly
-$ java -jar target/scala-2.10/json-schema-parser-assembly-0.9.0.jar <schema-uri-or-path>
+$ java -jar target/scala-2.10/json-schema-parser-assembly-0.11.0.jar <schema-uri-or-path>
 ```
  
 ### Reference
@@ -45,3 +45,8 @@ $ java -jar target/scala-2.10/json-schema-parser-assembly-0.9.0.jar <schema-uri-
 ### Used in
 
  * https://github.com/VoxSupplyChain/json-schema-codegen
+
+### Release Notes
+
+ * 0.11.0
+  * #1 support for cyclic references (@blast-hardcheese)
