@@ -8,7 +8,7 @@ scalaVersion := "2.10.5"
 
 libraryDependencies ++= Seq(
   "io.argonaut" %% "argonaut" % "6.1",
-  "org.scalatest" % "scalatest_2.10" % "2.2.1" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.1" % "test",
   "org.scalacheck" %% "scalacheck" % "1.12.0" % "test"
 )
 
@@ -17,6 +17,8 @@ bintraySettings
 releaseSettings
 
 packageLabels in bintray := Seq("json-schema", "parser")
+
+crossScalaVersions := Seq("2.10.5", "2.11.8", "2.12.0")
 
 publishMavenStyle := false
 
