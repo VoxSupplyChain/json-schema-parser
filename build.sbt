@@ -1,4 +1,3 @@
-import bintray.Keys._
 
 name := "json-schema-parser"
 
@@ -20,17 +19,15 @@ libraryDependencies ++= {
   )
 }
 
-bintraySettings
+publishMavenStyle := true
 
-releaseSettings
+publishTo := {
+  val nexus = "https://my.artifact.repo.net/"
+  if (isSnapshot.value)
+    Some("snapshots"  at "http://nexus.tundra.com/repository/maven-snapshots/")
+  else
+    Some("releases" at "http://nexus.tundra.com/repository/maven-releases/") 
+}
 
-packageLabels in bintray := Seq("json-schema", "parser")
-
-publishMavenStyle := false
-
-licenses += "Apache-2.0" -> new URL("http://www.apache.org/licenses/LICENSE-2.0")
-
-repository in bintray := "ivy-public"
-
-bintrayOrganization in bintray := Some("voxsupplychain")
+credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
 

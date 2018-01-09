@@ -18,12 +18,10 @@ Also includes implementation of:
 
 ### Use
 ```
- resolvers += Resolver.url(
-   "vox-public-ivy",
-   url("http://dl.bintray.com/content/voxsupplychain/ivy-public"))(
-     Resolver.ivyStylePatterns)
+  resolvers += "releases" at "http://nexus.tundra.com/repository/maven-releases/"
+
  libraryDependencies ++= Seq(
-   "com.voxsupplychain" %% "json-schema-parser" % "0.12.0"
+   "com.voxsupplychain" %% "json-schema-parser" % "0.12.1"
    )
 ```
  
@@ -32,7 +30,7 @@ Pull the latest tag from Github, and then:
 
 ```
 $ sbt assembly
-$ java -jar target/scala-2.10/json-schema-parser-assembly-0.12.0.jar <schema-uri-or-path>
+$ java -jar target/scala-2.10/json-schema-parser-assembly-0.12.1.jar <schema-uri-or-path>
 ```
  
 ### Reference
