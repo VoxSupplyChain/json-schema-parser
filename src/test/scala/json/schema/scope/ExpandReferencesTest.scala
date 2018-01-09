@@ -14,7 +14,11 @@ import scalaz.syntax.std.either._
 class ExpandReferencesTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 
 
-  def expand(s: String): Validation[String, Json] = s.parse.flatMap(r => ExpandReferences.expand(new URI("http://x.y.z/rootschema.json#"), r).toEither).validation
+  def expand(s: String): Validation[String, Json] =
+    s.parse
+      .disjunction
+      .flatMap(r => ExpandReferences.expand(new URI("http://x.y.z/rootschema.json#"), r))
+      .validation
 
   ExpandReferences.getClass.getName should "expand references to absolute based on parent scopes" in {
 
