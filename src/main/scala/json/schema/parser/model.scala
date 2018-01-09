@@ -5,7 +5,7 @@ import java.net.URI
 import argonaut.Json
 
 import scala.util.matching.Regex
-import scalaz.NonEmptyList
+import scalaz.{IList, NonEmptyList}
 
 
 object SimpleType extends Enumeration {
@@ -45,7 +45,7 @@ object Boundary {
 
 case class RangeConstrain[T](max: Option[T] = None, min: Option[T] = None)
 
-case class ConstrainedList[T](value: NonEmptyList[T], sizeConstrain: RangeConstrain[Inclusive[Int]])
+case class ConstrainedList[T](value: IList[T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
 case class ConstrainedMap[T](value: Map[String, T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
@@ -85,9 +85,9 @@ case class SchemaDocument[N](
                               definitions: Map[String, SchemaDocument[N]] = Map.empty[String, SchemaDocument[N]],
                               dependencies: Map[String, Either[SchemaDocument[N], Set[String]]] = Map.empty[String, Either[SchemaDocument[N], Set[String]]],
                               types: Set[SimpleType.SimpleType] = Set.empty,
-                              anyOf: List[SchemaDocument[N]] = Nil,
-                              allOf: List[SchemaDocument[N]] = Nil,
-                              oneOf: List[SchemaDocument[N]] = Nil,
+                              anyOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
+                              allOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
+                              oneOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
                               not: Option[SchemaDocument[N]] = None
 
                               ) {

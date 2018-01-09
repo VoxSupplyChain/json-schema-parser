@@ -7,7 +7,7 @@ import org.scalacheck.Gen
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{Inspectors, FlatSpec, Matchers}
-
+import argonaut.Argonaut._
 import scalaz.{Failure, Success, Validation}
 
 trait ScalazMatchers {
@@ -46,14 +46,14 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         |{
         |"title":"root"
         |}
-      """.stripMargin).map { d: SchemaDocument[Double] => d.title} shouldBe Success(Some("root"))
+      """.stripMargin).map { d: SchemaDocument[Double] => d.title } shouldBe Success(Some("root"))
 
     parse(
       """
         |{
         |"title":10
         |}
-      """.stripMargin).map { d: SchemaDocument[Double] => d.title} shouldBe Failure("String: [--\\(title)]")
+      """.stripMargin).map { d: SchemaDocument[Double] => d.title } shouldBe Failure("String: [--\\(title)]")
 
   }
 
@@ -78,7 +78,6 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
 
   }
-
 
 
   it should "parse and validate $schemas" in {
@@ -217,7 +216,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
     r.map(_.scope) shouldBe Success(new URI("http://my.site/myschema#"))
     r.map(_.definitions("schema1").scope) shouldBe Success(new URI("http://my.site/schema1#"))
-    r.map(_.definitions("schema2").array.get.items.value.head.scope) shouldBe Success(new URI("http://my.site/schema1#"))
+    r.map(_.definitions("schema2").array.get.items.value.headOption.get.scope) shouldBe Success(new URI("http://my.site/schema1#"))
 
   }
 
@@ -239,12 +238,12 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
         | """.stripMargin)
 
     r.map(_.scope) shouldBe Success(new URI("http://my.site/myschema#"))
-    r.map(_.definitions("schema2").array.get.items.value.head.types.head) shouldBe Success(SimpleType.integer)
+    r.map(_.definitions("schema2").array.get.items.value.headOption.get.types.head) shouldBe Success(SimpleType.integer)
 
   }
 
   it should "decodes pointer references to overriden scope" in {
-    val r =     parse(
+    val r = parse(
       """
         |{
         | "id": "product",
@@ -268,14 +267,13 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
   }
 
   it should "decodes pointer references and preserves the reference as id" in {
-    val r =     parse(
+    val r = parse(
       """
         |{
         | "id": "product",
         |"type":"object",
         |"properties": {
-        |"a":{"$ref": "#/definitions/typea"},
-        |"b":{"$ref": "http://json-schema.org/address#"}
+        |"a":{"$ref": "#/definitions/typea"}
         |},
         |"definitions":{
         | "typea":{
@@ -288,8 +286,19 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
     r.map(_.scope) shouldBe Success(new URI("product#"))
     r.map(_.obj.get.properties.value("a").schema.types) shouldBe Success(Set(SimpleType.string))
     r.map(_.obj.get.properties.value("a").schema.id) shouldBe Success(Some(new URI("product#/definitions/typea")))
-    r.map(_.obj.get.properties.value("b").schema.id) shouldBe Success(Some(new URI("http://json-schema.org/address#")))
 
+  }
+
+  it should "decodes enum types" in {
+    val r = parse(
+      """
+        |{
+        |"type":"string",
+        |"enum": ["a","b"]
+        |}
+      """.stripMargin)
+
+    r.map(_.enums) shouldBe Success(Set(jString("a"), jString("b")))
   }
 
   implicit val remoteCyclicSchemas: List[URI] = List(new URI("http://swagger.io/v2/schema.json"))
@@ -303,16 +312,16 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
   }).toList
 
   it should "parse all valid schemas" in {
-    forAll (validSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
+    forAll(validSchemas) { f => JsonSchemaParser.parse(f).validation.map(_ => ()) shouldBe Success(()) }
   }
 
 
   it should "parse remote schemas with cyclic reference" in {
-    forAll (remoteCyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
+    forAll(remoteCyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
   }
 
 
   it should "parse schemas with cyclic reference" in {
-    forAll (cyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
+    forAll(cyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
   }
 }

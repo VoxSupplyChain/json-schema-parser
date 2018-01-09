@@ -5,10 +5,10 @@ import java.net.URI
 
 import argonaut.Argonaut._
 import argonaut.Json
-
+import scalaz.{\/, -\/, \/-}
 import scala.collection.mutable
 import scala.util.control.NonFatal
-import scalaz._
+import scalaz.syntax.std.either._
 
 
 trait JsonSource[A] {
@@ -29,14 +29,14 @@ object JsonSource {
   implicit val string: JsonSource[String] = new JsonSource[String] {
     override def uri(t: String): URI = new URI("#")
 
-    override def json(t: String): String \/ Json = t.parse
+    override def json(t: String): String \/ Json = t.parse.disjunction
   }
 
   implicit val file: JsonSource[File] = new JsonSource[File] {
     override def uri(t: File): URI = t.toURI
 
     override def json(t: File): String \/ Json = try {
-      scala.io.Source.fromFile(t).mkString.parse
+      scala.io.Source.fromFile(t).mkString.parse.disjunction
     } catch {
       case NonFatal(e) => -\/(e.getMessage)
     }
@@ -49,7 +49,7 @@ object JsonSource {
       import scala.io.Source
       val html = if (t.isAbsolute) Source.fromURL(t.toURL) else Source.fromURI(t)
       val s = html.mkString
-      s.parse
+      s.parse.disjunction
     } catch {
       case NonFatal(e) => -\/(e.getMessage)
     }

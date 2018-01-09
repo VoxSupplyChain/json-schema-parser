@@ -8,6 +8,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz.Success
+import scalaz.syntax.std.either._
 
 class JsonPointerResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 

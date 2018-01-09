@@ -4,13 +4,21 @@ name := "json-schema-parser"
 
 organization := "com.voxsupplychain"
 
-scalaVersion := "2.10.5"
+scalaVersion := "2.12.4"
 
-libraryDependencies ++= Seq(
-  "io.argonaut" %% "argonaut" % "6.1",
-  "org.scalatest" % "scalatest_2.10" % "2.2.1" % "test",
-  "org.scalacheck" %% "scalacheck" % "1.12.0" % "test"
-)
+crossScalaVersions := Seq("2.10.5", "2.11.11", "2.12.4")
+
+libraryDependencies ++= {
+  val scalaz = "7.2.14"
+  val argonaut = "6.2.1"
+  Seq(
+    "io.argonaut" %% "argonaut" % argonaut,
+    "io.argonaut" %% "argonaut-scalaz" % argonaut,
+    "org.scalaz" %% "scalaz-core" % scalaz,
+    "org.scalacheck" %% "scalacheck" % "1.13.4",
+    "org.scalatest" %% "scalatest" % "3.0.1"
+  )
+}
 
 bintraySettings
 

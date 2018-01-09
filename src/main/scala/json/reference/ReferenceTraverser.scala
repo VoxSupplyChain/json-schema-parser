@@ -4,6 +4,7 @@ import java.net.{URI, URISyntaxException}
 
 import argonaut.Argonaut._
 import argonaut.{ACursor, HCursor, Json}
+import json.util.ArgonautTraverse
 
 import scala.util.control.Exception
 import scalaz._
@@ -11,7 +12,7 @@ import scalaz._
 /**
  * Traverser that replaces all $ref with a resolved Json value.
  */
-trait ReferenceTraverser {
+trait ReferenceTraverser extends ArgonautTraverse {
 
   private type TraverseState = TraverseOp
 

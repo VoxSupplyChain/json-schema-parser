@@ -42,21 +42,21 @@ trait Decoders extends DecodeJsons {
 
   implicit lazy val SimpleTypeCodec: CodecJson[SimpleType.SimpleType] =
     CodecJson[SimpleType.SimpleType](
-    (v: SimpleType.SimpleType) => v.toString.asJson,
-    (j: HCursor) => j.as[String].flatMap {
-      s: String =>
-        try {
-          DecodeResult.ok(SimpleType.withName(s))
-        } catch {
-          case e: NoSuchElementException => DecodeResult.fail("SimpleType", j.history)
-        }
-    })
+      (v: SimpleType.SimpleType) => v.toString.asJson,
+      (j: HCursor) => j.as[String].flatMap {
+        s: String =>
+          try {
+            DecodeResult.ok(SimpleType.withName(s))
+          } catch {
+            case e: NoSuchElementException => DecodeResult.fail("SimpleType", j.history)
+          }
+      })
 
   implicit def nonEmptyListDecodeJson[A: DecodeJson]: DecodeJson[NonEmptyList[A]] =
     implicitly[DecodeJson[List[A]]] flatMap {
       list =>
-        if (list.nonEmpty) DecodeJson(_ => DecodeResult.ok(NonEmptyList.nel(list.head, list.tail)))
-        else DecodeJson[NonEmptyList[A]](c => DecodeResult.fail("[A]NonEmptyList[A]", c.history))
+        scalaz.IList.fromList(list).toNel.fold(DecodeJson[NonEmptyList[A]](c => DecodeResult.fail("[A]NonEmptyList[A]", c.history)))(nel =>
+          DecodeJson(_ => DecodeResult.ok(nel)))
     } setName "[A]List[A]"
 
   def oneOrNonEmptyList[T](implicit e: DecodeJson[T]): DecodeJson[NonEmptyList[T]] =

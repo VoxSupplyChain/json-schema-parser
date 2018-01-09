@@ -3,14 +3,18 @@ package json.schema.scope
 import java.net.URI
 
 import argonaut.Argonaut._
+import argonaut.Json
 import json.schema.parser.ScalazMatchers
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
+import scalaz.Validation
+import scalaz.syntax.std.either._
+
 class ExpandReferencesTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 
 
-  def expand(s: String) = s.parse.flatMap(r => ExpandReferences.expand(new URI("http://x.y.z/rootschema.json#"), r)).validation
+  def expand(s: String): Validation[String, Json] = s.parse.flatMap(r => ExpandReferences.expand(new URI("http://x.y.z/rootschema.json#"), r).toEither).validation
 
   ExpandReferences.getClass.getName should "expand references to absolute based on parent scopes" in {
 

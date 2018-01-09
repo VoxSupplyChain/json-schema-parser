@@ -6,13 +6,15 @@ import argonaut.Argonaut._
 import argonaut.{ACursor, HCursor, Json}
 import json.pointer.JsonPointer
 import json.reference.ReferenceResolver
+import json.util.ArgonautTraverse
 
 import scala.util.control.Exception
-import scalaz.\/
+import scalaz.{Kleisli, State, \/}
 
 package object scope {
 
-  private[scope] trait JsonTraverser {
+  
+  private[scope] trait JsonTraverser extends ArgonautTraverse {
 
     // current scope uri
     type State

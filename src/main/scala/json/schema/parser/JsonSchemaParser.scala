@@ -3,38 +3,38 @@ package json.schema.parser
 import java.net.URI
 
 import argonaut.Argonaut._
+import argonaut.ArgonautScalaz._
 import argonaut.{DecodeJson, Json}
 import json.reference.ReferenceResolver
-import json.schema.scope.{ScopeDiscovery, ExpandReferences}
+import json.schema.scope.{ExpandReferences, ScopeDiscovery}
 import json.source.JsonSource
 
 import scala.collection.immutable.Stack
 import scalaz._
-import scalaz.std.string._
 import scalaz.syntax.show._
+import scalaz.syntax.std.either._
 
 /**
- * Resolves references using predefined map of scopes first and then using standard resolution.
- * @param resolutionScope scope used to resolve references
- */
+  * Resolves references using predefined map of scopes first and then using standard resolution.
+  *
+  * @param resolutionScope scope used to resolve references
+  */
 class ScopeReferenceResolver(resolutionScope: Map[URI, Json]) extends ReferenceResolver {
 
   override protected val defaultLoader: Loader = {
     reference: URI =>
       val referenceRootDoc = reference.resolve("#")
-      for {
-        (resultJson, resultRef) <- {
-          // try to resolve from ID scopes first
-          val scopedResult = resolutionScope
-            .get(reference)
-            .map((_, referenceRootDoc))
-            .orElse(resolutionScope.get(referenceRootDoc).map((_, reference)))
-            .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j))
-
-          scopedResult orElse super.defaultLoader(reference)
+      // try to resolve from ID scopes first
+      resolutionScope
+        .get(reference)
+        .map((_, referenceRootDoc))
+        .orElse(resolutionScope.get(referenceRootDoc).map((_, reference)))
+        .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j))
+        .orElse(super.defaultLoader(reference))
+        .flatMap { case (resultJson, resultRef) =>
+          ExpandReferences.expand(resultRef, resultJson)
+            .map(expandedResult => (expandedResult, resultRef))
         }
-        expandedResult <- ExpandReferences.expand(resultRef, resultJson)
-      } yield (expandedResult, resultRef)
   }
 
   override def dereference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): \/[String, Json] = {
@@ -47,7 +47,7 @@ class ScopeReferenceResolver(resolutionScope: Map[URI, Json]) extends ReferenceR
       if (j.fields.contains("id"))
         j
       else
-        j +("id", jString(id.toString))
+        j + ("id", jString(id.toString))
   }
 
 }
@@ -72,7 +72,8 @@ class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
   private def parseToSchema[T: JsonSource](addr: T)(json: Json) =
     json
       .jdecode(schemaDecoder(addr))
-      .toDisjunction
+      .toEither
+      .disjunction
       .leftMap(r => r._1 + ": " + r._2.shows)
 
   private def schemaDecoder[T: JsonSource](addr: T)(implicit src: JsonSource[T]) =

@@ -8,6 +8,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz._
+import scalaz.syntax.std.either._
 
 class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers {
 
@@ -22,9 +23,9 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
       }
     }
 
-  def shouldResolve(from: String, to: String) = ReferenceResolver.resolveFrom(from.stripMargin) shouldBe to.stripMargin.parse
+  def shouldResolve(from: String, to: String) = ReferenceResolver.resolveFrom(from.stripMargin) shouldBe to.stripMargin.parse.disjunction
 
-  def shouldResolve(from: File, to: String) = ReferenceResolver.resolveFrom(from) shouldBe to.stripMargin.parse
+  def shouldResolve(from: File, to: String) = ReferenceResolver.resolveFrom(from) shouldBe to.stripMargin.parse.disjunction
 
   def shouldFailResolve(from: String, containErr: String) = ReferenceResolver.resolveFrom(from.stripMargin) should containLeft(containErr)
 
