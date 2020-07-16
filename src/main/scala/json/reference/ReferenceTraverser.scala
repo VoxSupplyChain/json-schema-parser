@@ -10,8 +10,8 @@ import scala.util.control.Exception
 import scalaz._
 
 /**
- * Traverser that replaces all $ref with a resolved Json value.
- */
+  * Traverser that replaces all $ref with a resolved Json value.
+  */
 trait ReferenceTraverser extends ArgonautTraverse {
 
   private type TraverseState = TraverseOp
@@ -23,24 +23,22 @@ trait ReferenceTraverser extends ArgonautTraverse {
   }
 
   private sealed case class TCheck(tail: TraverseOp) extends TraverseOp {
-    override def next(hc: HCursor): (TraverseState, ACursor) = jsonReference(hc.focus) match {
-      case Some(\/-(ref)) =>
-        resolve(ref).fold(
-          f => (TResult(-\/(f)), hc.acursor),
-          resolvedNode =>
-            (tail, hc.set(resolvedNode).acursor)
-        )
-      case Some(-\/(err)) =>
-        (TResult(-\/(err)), hc.acursor)
-      case None =>
-        hc.focus.arrayOrObject(
-          (tail, hc.acursor),
-          array =>
-            (TArray(array.length - 1, tail), hc.acursor),
-          obj =>
-            (TObject(obj.fieldSet, tail), hc.acursor)
-        )
-    }
+    override def next(hc: HCursor): (TraverseState, ACursor) =
+      jsonReference(hc.focus) match {
+        case Some(\/-(ref)) =>
+          resolve(ref).fold(
+            f => (TResult(-\/(f)), hc.acursor),
+            resolvedNode => (tail, hc.set(resolvedNode).acursor)
+          )
+        case Some(-\/(err)) =>
+          (TResult(-\/(err)), hc.acursor)
+        case None =>
+          hc.focus.arrayOrObject(
+            (tail, hc.acursor),
+            array => (TArray(array.length - 1, tail), hc.acursor),
+            obj => (TObject(obj.fieldSet, tail), hc.acursor)
+          )
+      }
   }
 
   private sealed case class TUp(tail: TraverseOp) extends TraverseOp {
@@ -48,24 +46,31 @@ trait ReferenceTraverser extends ArgonautTraverse {
   }
 
   private sealed case class TObject(fields: Set[JsonField], tail: TraverseOp) extends TraverseOp {
-    override def next(hc: HCursor): (TraverseState, ACursor) = if (fields.isEmpty)
-      (tail, hc.acursor)
-    else
-      (TCheck(
-        TUp(
-          this.copy(fields.tail)
+    override def next(hc: HCursor): (TraverseState, ACursor) =
+      if (fields.isEmpty)
+        (tail, hc.acursor)
+      else
+        (
+          TCheck(
+            TUp(
+              this.copy(fields.tail)
+            )
+          ),
+          hc.downField(fields.head)
         )
-      ), hc.downField(fields.head))
   }
 
   private sealed case class TArray(index: Int, tail: TraverseOp) extends TraverseOp {
     override def next(hc: HCursor): (TraverseState, ACursor) =
       if (index >= 0)
-        (TCheck(
-          TUp(
-            this.copy(index - 1)
-          )
-        ), hc.downN(index))
+        (
+          TCheck(
+            TUp(
+              this.copy(index - 1)
+            )
+          ),
+          hc.downN(index)
+        )
       else
         (tail, hc.acursor)
   }
@@ -94,7 +99,7 @@ trait ReferenceTraverser extends ArgonautTraverse {
     val init: TraverseOp = TCheck(TReturn)
     hcursor.traverseUntilDone(init)(treeTraverser) match {
       case TResult(result) => result
-      case _ => -\/("json traversal is incomplete")
+      case _               => -\/("json traversal is incomplete")
     }
   }
 
@@ -103,8 +108,8 @@ trait ReferenceTraverser extends ArgonautTraverse {
 object ReferenceTraverser {
 
   /**
-   * Removes all $ref references.
-   */
+    * Removes all $ref references.
+    */
   object NullTraverser extends ReferenceTraverser {
     override def resolve(uri: URI): String \/ Json = \/-(jNull)
   }

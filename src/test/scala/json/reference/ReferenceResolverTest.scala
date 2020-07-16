@@ -17,18 +17,20 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
       def apply(left: \/[_, _]) = {
         val r = left match {
           case -\/(e) => e.toString.contains(contain)
-          case _ => false
+          case _      => false
         }
         MatchResult(r, s"$left does not contain '$contain'", s"$left contains '$contain'")
       }
     }
 
-  def shouldResolve(from: String, to: String) = ReferenceResolver.resolveFrom(from.stripMargin) shouldBe to.stripMargin.parse.disjunction
+  def shouldResolve(from: String, to: String) =
+    ReferenceResolver.resolveFrom(from.stripMargin) shouldBe to.stripMargin.parse.disjunction
 
-  def shouldResolve(from: File, to: String) = ReferenceResolver.resolveFrom(from) shouldBe to.stripMargin.parse.disjunction
+  def shouldResolve(from: File, to: String) =
+    ReferenceResolver.resolveFrom(from) shouldBe to.stripMargin.parse.disjunction
 
-  def shouldFailResolve(from: String, containErr: String) = ReferenceResolver.resolveFrom(from.stripMargin) should containLeft(containErr)
-
+  def shouldFailResolve(from: String, containErr: String) =
+    ReferenceResolver.resolveFrom(from.stripMargin) should containLeft(containErr)
 
   ReferenceResolver.getClass.toString should "not change json doc if no references" in {
     shouldResolve(
@@ -110,7 +112,6 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
     )
   }
 
-
   it should "fail to resolve unknown references" in {
     shouldFailResolve(
       """
@@ -150,7 +151,6 @@ class ReferenceResolverTest extends FlatSpec with GeneratorDrivenPropertyChecks 
       """
     )
   }
-
 
   it should "fail to resolve invalid reference uri" in {
     shouldFailResolve(

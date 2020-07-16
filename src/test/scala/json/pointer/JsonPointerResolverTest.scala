@@ -70,9 +70,8 @@ class JsonPointerResolverTest extends FlatSpec with GeneratorDrivenPropertyCheck
       ("/k\"l", jNumber(6)),
       ("/ ", jNumber(7)),
       ("/m~0n", jNumber(8))
-    ) foreach {
-      fe =>
-        JsonPointerResolver(JsonPointer(fe._1).get)(sampleFromSpec).validation shouldBe Success(fe._2)
+    ) foreach { fe =>
+      JsonPointerResolver(JsonPointer(fe._1).get)(sampleFromSpec).validation shouldBe Success(fe._2)
     }
 
   }
@@ -105,12 +104,10 @@ class JsonPointerResolverTest extends FlatSpec with GeneratorDrivenPropertyCheck
       (new URI("#/k%22l"), jNumber(6)),
       (new URI("#/%20"), jNumber(7)),
       (new URI("#/m~0n"), jNumber(8))
-    ) foreach {
-      fe =>
-        JsonPointerResolver(fe._1)(sampleFromSpec).validation shouldBe Success(fe._2)
+    ) foreach { fe =>
+      JsonPointerResolver(fe._1)(sampleFromSpec).validation shouldBe Success(fe._2)
     }
 
   }
-
 
 }

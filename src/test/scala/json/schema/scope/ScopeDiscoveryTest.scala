@@ -11,7 +11,6 @@ import scalaz.Success
 
 class ScopeDiscoveryTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 
-
   val r =
     """
       |{
@@ -44,16 +43,14 @@ class ScopeDiscoveryTest extends FlatSpec with GeneratorDrivenPropertyChecks wit
 
   it should "map resolve sub scopes based on the parent scopes" in {
 
-    map.map(_(new URI("http://my.site/schema1#"))) shouldBe Success(
-      """
+    map.map(_(new URI("http://my.site/schema1#"))) shouldBe Success("""
         |{
         |            "id": "schema1",
         |            "type": "integer"
         |}
       """.stripMargin.parseOption.get)
 
-    map.map(_(new URI("http://my.site/schema1#pointeroverride"))) shouldBe Success(
-      """
+    map.map(_(new URI("http://my.site/schema1#pointeroverride"))) shouldBe Success("""
         |{
         |            "id": "#pointeroverride",
         |            "type": "number"

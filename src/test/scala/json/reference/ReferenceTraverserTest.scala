@@ -68,7 +68,6 @@ class ReferenceTraverserTest extends FlatSpec with GeneratorDrivenPropertyChecks
       """
     )
 
-
   }
   "JsonTraverser" should " modify json references" in {
 
@@ -114,17 +113,14 @@ class ReferenceTraverserTest extends FlatSpec with GeneratorDrivenPropertyChecks
     )
   }
 
-
   "JsonTraverser" should " fail for invalid references" in {
 
-    shouldFail(
-      """
+    shouldFail("""
         |{
         | "$ref": " b e a failure"
         |}
       """)
-    shouldFail(
-      """
+    shouldFail("""
         |[{
         | "$ref": "- url"
         |}]

@@ -5,11 +5,10 @@ import java.net.URI
 
 import argonaut.Argonaut._
 import argonaut.Json
-import scalaz.{\/, -\/, \/-}
+import scalaz.{-\/, \/, \/-}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import scalaz.syntax.std.either._
-
 
 trait JsonSource[A] {
 
@@ -35,38 +34,40 @@ object JsonSource {
   implicit val file: JsonSource[File] = new JsonSource[File] {
     override def uri(t: File): URI = t.toURI
 
-    override def json(t: File): String \/ Json = try {
-      scala.io.Source.fromFile(t).mkString.parse.disjunction
-    } catch {
-      case NonFatal(e) => -\/(e.getMessage)
-    }
+    override def json(t: File): String \/ Json =
+      try scala.io.Source.fromFile(t).mkString.parse.disjunction
+      catch {
+        case NonFatal(e) => -\/(e.getMessage)
+      }
   }
 
   implicit val uri: JsonSource[URI] = new JsonSource[URI] {
     override def uri(t: URI): URI = t
 
-    override def json(t: URI): String \/ Json = try {
-      import scala.io.Source
-      val html = if (t.isAbsolute) Source.fromURL(t.toURL) else Source.fromURI(t)
-      val s = html.mkString
-      s.parse.disjunction
-    } catch {
-      case NonFatal(e) => -\/(e.getMessage)
-    }
+    override def json(t: URI): String \/ Json =
+      try {
+        import scala.io.Source
+        val html = if (t.isAbsolute) Source.fromURL(t.toURL) else Source.fromURI(t)
+        val s    = html.mkString
+        s.parse.disjunction
+      } catch {
+        case NonFatal(e) => -\/(e.getMessage)
+      }
   }
 
   def apply[T: JsonSource]: JsonSource[T] = implicitly[JsonSource[T]]
 
-  def withCaching[T](implicit wrapped: JsonSource[T]): JsonSource[T] = new JsonSource[T] {
+  def withCaching[T](implicit wrapped: JsonSource[T]): JsonSource[T] =
+    new JsonSource[T] {
 
-    val cache = mutable.Map.empty[URI, String \/ Json]
+      val cache = mutable.Map.empty[URI, String \/ Json]
 
-    override def uri(t: T): URI = wrapped.uri(t)
+      override def uri(t: T): URI = wrapped.uri(t)
 
-    override def json(t: T): \/[String, Json] = {
-      // remove fragment, as whole document for that uri is cached
-      val key = uri(t).resolve("#")
-      cache.getOrElseUpdate(key, wrapped.json(t))
+      override def json(t: T): \/[String, Json] = {
+        // remove fragment, as whole document for that uri is cached
+        val key = uri(t).resolve("#")
+        cache.getOrElseUpdate(key, wrapped.json(t))
+      }
     }
-  }
 }

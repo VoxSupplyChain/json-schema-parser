@@ -60,7 +60,9 @@ class DecodersTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matc
   it should "fail decode an empty list" in {
     """
       []
-    """.stripMargin.decodeEither[Set[String]](nonEmptySetDecodeJsonStrict) shouldBe Left("[A]Set[A]: CursorHistory(List())")
+    """.stripMargin.decodeEither[Set[String]](nonEmptySetDecodeJsonStrict) shouldBe Left(
+      "[A]Set[A]: CursorHistory(List())"
+    )
   }
 
   "Either" should "decode a number or boolean" in {

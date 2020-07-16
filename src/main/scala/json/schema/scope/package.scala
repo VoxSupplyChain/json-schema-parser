@@ -9,11 +9,10 @@ import json.reference.ReferenceResolver
 import json.util.ArgonautTraverse
 
 import scala.util.control.Exception
-import scalaz.{Kleisli, State, \/}
+import scalaz.{\/, Kleisli, State}
 
 package object scope {
 
-  
   private[scope] trait JsonTraverser extends ArgonautTraverse {
 
     // current scope uri
@@ -35,27 +34,38 @@ package object scope {
     private[scope] case class TArray(index: Int, tail: TraverseOp) extends TraverseOp {
       override def next(state: State, hc: HCursor): (TraverseState, ACursor) =
         if (index >= 0)
-          ((state, TCheck(
-            TUp(
-              this.copy(index - 1)
-            )
-          )), hc.downN(index))
+          (
+            (
+              state,
+              TCheck(
+                TUp(
+                  this.copy(index - 1)
+                )
+              )
+            ),
+            hc.downN(index)
+          )
         else
           ((state, tail), hc.acursor)
     }
 
     private[scope] case class TObject(fields: Set[JsonField], tail: TraverseOp) extends TraverseOp {
-      override def next(state: State, hc: HCursor): (TraverseState, ACursor) = if (fields.isEmpty)
-        ((state, tail), hc.acursor)
-      else
-        ((state,
-          TCheck(
-            TUp(
-              this.copy(fields.tail)
-            )
-          )), hc.downField(fields.head))
+      override def next(state: State, hc: HCursor): (TraverseState, ACursor) =
+        if (fields.isEmpty)
+          ((state, tail), hc.acursor)
+        else
+          (
+            (
+              state,
+              TCheck(
+                TUp(
+                  this.copy(fields.tail)
+                )
+              )
+            ),
+            hc.downField(fields.head)
+          )
     }
-
 
     private[scope] def treeTraverser(state: TraverseState, hc: HCursor): (TraverseState, ACursor) =
       state._2.next(state._1, hc)
@@ -63,8 +73,7 @@ package object scope {
     private[scope] def childScope(parent: URI, sub: URI) = JsonPointer.resolveAsPointer(parent, sub)
 
     private[scope] def parseUri(s: String): String \/ URI =
-      \/
-        .fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s)))
+      \/.fromEither(Exception.catching(classOf[URISyntaxException]).either(new URI(s)))
         .leftMap(_.getMessage)
 
     private[scope] def getId(json: Json): Option[String \/ URI] =
@@ -78,7 +87,6 @@ package object scope {
         ref <- json.field("$ref")
         str <- ref.string
       } yield parseUri(str)
-
 
   }
 

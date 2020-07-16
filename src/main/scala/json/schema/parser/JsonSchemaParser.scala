@@ -21,49 +21,49 @@ import scalaz.syntax.std.either._
   */
 class ScopeReferenceResolver(resolutionScope: Map[URI, Json]) extends ReferenceResolver {
 
-  override protected val defaultLoader: Loader = {
-    reference: URI =>
-      val referenceRootDoc = reference.resolve("#")
-      // try to resolve from ID scopes first
-      resolutionScope
-        .get(reference)
-        .map((_, referenceRootDoc))
-        .orElse(resolutionScope.get(referenceRootDoc).map((_, reference)))
-        .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j))
-        .orElse(super.defaultLoader(reference))
-        .flatMap { case (resultJson, resultRef) =>
-          ExpandReferences.expand(resultRef, resultJson)
+  override protected val defaultLoader: Loader = { reference: URI =>
+    val referenceRootDoc = reference.resolve("#")
+    // try to resolve from ID scopes first
+    resolutionScope
+      .get(reference)
+      .map((_, referenceRootDoc))
+      .orElse(resolutionScope.get(referenceRootDoc).map((_, reference)))
+      .fold[String \/ (Json, URI)](-\/(s"no scope $reference"))(j => \/-(j))
+      .orElse(super.defaultLoader(reference))
+      .flatMap {
+        case (resultJson, resultRef) =>
+          ExpandReferences
+            .expand(resultRef, resultJson)
             .map(expandedResult => (expandedResult, resultRef))
-        }
+      }
   }
 
-  override def dereference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): \/[String, Json] = {
+  override def dereference(reference: URI, rootURI: URI, loader: Loader, inprogress: Stack[URI]): \/[String, Json] =
     // preserve the reference used for loading the json in the *id* field, so it is know where the node came from.
     super.dereference(reference, rootURI, loader, inprogress).map(result => jsonWithId(result, reference))
-  }
 
-  private def jsonWithId(json: Json, id: URI): Json = json.withObject {
-    j =>
+  private def jsonWithId(json: Json, id: URI): Json =
+    json.withObject { j =>
       if (j.fields.contains("id"))
         j
       else
         j + ("id", jString(id.toString))
-  }
+    }
 
 }
 
 class JsonSchemaParser[N](implicit n: Numeric[N], dn: DecodeJson[N]) {
 
-  def read[T: JsonSource](addr: T)(implicit source: JsonSource[T]): String \/ Json = source.json(addr).flatMap {
-    json =>
+  def read[T: JsonSource](addr: T)(implicit source: JsonSource[T]): String \/ Json =
+    source.json(addr).flatMap { json =>
       val rootUri: URI = source.uri(addr)
       for {
         expandedJson <- ExpandReferences.expand(rootUri, json)
-        scopeMap <- ScopeDiscovery.scopes(rootUri, expandedJson)
+        scopeMap     <- ScopeDiscovery.scopes(rootUri, expandedJson)
         local: ReferenceResolver = new ScopeReferenceResolver(scopeMap)
         resolved <- local.dereferenceInline(rootUri, expandedJson, rootUri, Stack.empty)
       } yield resolved
-  }
+    }
 
   def parse[T: JsonSource](addr: T): String \/ SchemaDocument[N] =
     read(addr)

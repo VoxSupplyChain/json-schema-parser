@@ -6,7 +6,7 @@ import java.net.URI
 import org.scalacheck.Gen
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Inspectors, FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Inspectors, Matchers}
 import argonaut.Argonaut._
 import scalaz.{Failure, Success, Validation}
 
@@ -17,7 +17,7 @@ trait ScalazMatchers {
       def apply(left: Validation[_, _]) = {
         val r = left match {
           case Failure(e) => e.toString.contains(contain)
-          case _ => false
+          case _          => false
         }
         MatchResult(r, s"$left does not contain '$contain'", s"$left contains '$contain'")
       }
@@ -27,13 +27,11 @@ trait ScalazMatchers {
 
 class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with ScalazMatchers {
 
-
   def parse(s: String) = JsonSchemaParser.parse(s).validation
 
   JsonSchemaParser.getClass.toString should "parse empty schemas" in {
 
-    parse(
-      """
+    parse("""
         |{}
       """.stripMargin) shouldBe a[Success[_]]
 
@@ -41,15 +39,13 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
   it should "parse schemas with optional valid fields" in {
 
-    parse(
-      """
+    parse("""
         |{
         |"title":"root"
         |}
       """.stripMargin).map { d: SchemaDocument[Double] => d.title } shouldBe Success(Some("root"))
 
-    parse(
-      """
+    parse("""
         |{
         |"title":10
         |}
@@ -59,8 +55,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
   it should "parse nested schemas" in {
 
-    val result = parse(
-      """
+    val result = parse("""
         |{
         |    "title": "root",
         |    "otherSchema": {
@@ -76,28 +71,23 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
     result.map(_.nestedSchemas("otherSchema").title) shouldBe Success(Some("nested"))
     result.map(_.nestedSchemas("otherSchema").nestedSchemas("anotherSchema").title) shouldBe Success(Some("alsoNested"))
 
-
   }
-
 
   it should "parse and validate $schemas" in {
 
-    parse(
-      """
+    parse("""
         |{
         |    "$schema":"http://json-schema.org/schema#"
         |}
       """.stripMargin).map(_.schema) shouldBe Success(Some(new URI("http://json-schema.org/schema#")))
 
-    parse(
-      """
+    parse("""
         |{
         |    "$schema":"http://json-schema.org/draft-04/schema#"
         |}
       """.stripMargin).map(_.schema) shouldBe Success(Some(new URI("http://json-schema.org/draft-04/schema#")))
 
-    parse(
-      """
+    parse("""
         |{
         |    "$schema":"http://json-schema.org/draft-03/schema#"
         |}
@@ -105,25 +95,21 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
   }
 
-
   it should "validate id" in {
 
-    parse(
-      """
+    parse("""
         |{
         |    "id":"http://x.y.z/rootschema.json#"
         |}
       """.stripMargin).map(_.scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
 
-    parse(
-      """
+    parse("""
         |{
         |    "id":"#nested"
         |}
       """.stripMargin).map(_.scope) shouldBe Success(new URI("#nested"))
 
-    parse(
-      """
+    parse("""
         |{
         |    "id":""
         |}
@@ -132,8 +118,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
   it should "resolve id based on parent schema" in {
 
-    val r = parse(
-      """
+    val r = parse("""
         |{
         |    "id": "http://x.y.z/rootschema.json#",
         |    "schema1": {
@@ -157,15 +142,18 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
     r.map(_.scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
     r.map(_.nestedSchemas("schema1").scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#foo"))
     r.map(_.nestedSchemas("schema2").scope) shouldBe Success(new URI("http://x.y.z/otherschema.json#"))
-    r.map(_.nestedSchemas("schema2").nestedSchemas("nested").scope) shouldBe Success(new URI("http://x.y.z/otherschema.json#bar"))
-    r.map(_.nestedSchemas("schema2").nestedSchemas("alsonested").scope) shouldBe Success(new URI("http://x.y.z/t/inner.json#a"))
+    r.map(_.nestedSchemas("schema2").nestedSchemas("nested").scope) shouldBe Success(
+      new URI("http://x.y.z/otherschema.json#bar")
+    )
+    r.map(_.nestedSchemas("schema2").nestedSchemas("alsonested").scope) shouldBe Success(
+      new URI("http://x.y.z/t/inner.json#a")
+    )
     r.map(_.nestedSchemas("schema3").scope) shouldBe Success(new URI("some://where.else/completely#"))
   }
 
   it should "resolve to base schema uri if no id in scope" in {
 
-    val r = parse(
-      """
+    val r = parse("""
         |{
         |    "id": "http://x.y.z/rootschema.json#",
         |    "schema4": {
@@ -178,11 +166,9 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
     r.map(_.nestedSchemas("schema4").scope) shouldBe Success(new URI("http://x.y.z/rootschema.json#"))
   }
 
-
   it should "resolve agaist empty location if no id" in {
 
-    val r = parse(
-      """
+    val r = parse("""
         |{
         |    "$schema":"http://json-schema.org/draft-04/schema#",
         |    "schema4": {
@@ -197,8 +183,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
   it should "decodes schema references" in {
 
-    val r = parse(
-      """
+    val r = parse("""
         |{
         |    "id": "http://my.site/myschema#",
         |    "definitions": {
@@ -216,13 +201,14 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
     r.map(_.scope) shouldBe Success(new URI("http://my.site/myschema#"))
     r.map(_.definitions("schema1").scope) shouldBe Success(new URI("http://my.site/schema1#"))
-    r.map(_.definitions("schema2").array.get.items.value.headOption.get.scope) shouldBe Success(new URI("http://my.site/schema1#"))
+    r.map(_.definitions("schema2").array.get.items.value.headOption.get.scope) shouldBe Success(
+      new URI("http://my.site/schema1#")
+    )
 
   }
 
   it should "decodes schema references to the same instance" in {
-    val r = parse(
-      """
+    val r = parse("""
         |{
         |    "id": "http://my.site/myschema#",
         |    "definitions": {
@@ -243,8 +229,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
   }
 
   it should "decodes pointer references to overriden scope" in {
-    val r = parse(
-      """
+    val r = parse("""
         |{
         | "id": "product",
         |"type":"object",
@@ -267,8 +252,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
   }
 
   it should "decodes pointer references and preserves the reference as id" in {
-    val r = parse(
-      """
+    val r = parse("""
         |{
         | "id": "product",
         |"type":"object",
@@ -290,8 +274,7 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
   }
 
   it should "decodes enum types" in {
-    val r = parse(
-      """
+    val r = parse("""
         |{
         |"type":"string",
         |"enum": ["a","b"]
@@ -303,25 +286,27 @@ class JsonSchemaParserTest extends FlatSpec with Inspectors with Matchers with S
 
   implicit val remoteCyclicSchemas: List[URI] = List(new URI("http://swagger.io/v2/schema.json"))
 
-  implicit val validSchemas: List[File] = new File("src/test/resources/json/schema/parser/valid").listFiles(new FilenameFilter {
-    override def accept(dir: File, name: String): Boolean = name endsWith ".json"
-  }).toList
+  implicit val validSchemas: List[File] = new File("src/test/resources/json/schema/parser/valid")
+    .listFiles(new FilenameFilter {
+      override def accept(dir: File, name: String): Boolean = name endsWith ".json"
+    })
+    .toList
 
-  implicit val cyclicSchemas: List[File] = new File("src/test/resources/json/schema/parser/recursive").listFiles(new FilenameFilter {
-    override def accept(dir: File, name: String): Boolean = name endsWith ".json"
-  }).toList
+  implicit val cyclicSchemas: List[File] = new File("src/test/resources/json/schema/parser/recursive")
+    .listFiles(new FilenameFilter {
+      override def accept(dir: File, name: String): Boolean = name endsWith ".json"
+    })
+    .toList
 
   it should "parse all valid schemas" in {
-    forAll(validSchemas) { f => JsonSchemaParser.parse(f).validation.map(_ => ()) shouldBe Success(()) }
+    forAll(validSchemas)(f => JsonSchemaParser.parse(f).validation.map(_ => ()) shouldBe Success(()))
   }
-
 
   it should "parse remote schemas with cyclic reference" in {
-    forAll(remoteCyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
+    forAll(remoteCyclicSchemas)(f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true)
   }
 
-
   it should "parse schemas with cyclic reference" in {
-    forAll(cyclicSchemas) { f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true }
+    forAll(cyclicSchemas)(f => JsonSchemaParser.parse(f).validation.isSuccess shouldBe true)
   }
 }

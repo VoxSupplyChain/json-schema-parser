@@ -7,8 +7,8 @@ import scala.util.parsing.input.CharSequenceReader
 import scala.util.{Failure => TryFailure, Success => TrySuccess, Try}
 
 /**
- * Based on code from https://github.com/plasmaconduit/json-pointer/blob/master/src/main/scala/com/plasmaconduit/jsonpointer/JsonPointer.scala
- */
+  * Based on code from https://github.com/plasmaconduit/json-pointer/blob/master/src/main/scala/com/plasmaconduit/jsonpointer/JsonPointer.scala
+  */
 case class JsonPointer(head: JsonPointerStep, tail: Option[JsonPointer]) {
   override def toString: String = {
     val t = tail.fold("")(_.toString)
@@ -55,34 +55,32 @@ object JsonPointer extends Parsers {
 
   val step = separator ~> (numeric | string)
 
-  def parser: Parser[Try[JsonPointer]] = phrase(rep1(step)) ^^ {
-    case x :: xs => TrySuccess(stepsToJsonPointer(x :: xs))
-    case Nil => TryFailure(new IllegalArgumentException("Failed parsing json pointer"))
-  }
+  def parser: Parser[Try[JsonPointer]] =
+    phrase(rep1(step)) ^^ {
+      case x :: xs => TrySuccess(stepsToJsonPointer(x :: xs))
+      case Nil     => TryFailure(new IllegalArgumentException("Failed parsing json pointer"))
+    }
 
   val root: JsonPointer = JsonPointer(JsonPointerRootStep, None)
 
-  private def stepsToJsonPointer(steps: Seq[JsonPointerStep]): JsonPointer = {
+  private def stepsToJsonPointer(steps: Seq[JsonPointerStep]): JsonPointer =
     (steps.dropRight(1) :\ JsonPointer(steps.last, None)) { (m, n) =>
       JsonPointer(m, Some(n))
     }
-  }
 
-  def apply(pointer: String): Try[JsonPointer] = {
+  def apply(pointer: String): Try[JsonPointer] =
     if (pointer.isEmpty)
       TrySuccess(root)
     else
       parser(new CharSequenceReader(pointer)) match {
-        case Success(steps, _) => steps
+        case Success(steps, _)   => steps
         case NoSuccess(error, _) => TryFailure(new IllegalArgumentException(s"$error: [$pointer]"))
       }
-  }
 
   def apply(uriPointer: URI): Try[JsonPointer] =
     Option(uriPointer.getFragment)
       .map(apply)
       .getOrElse(TrySuccess(root))
-
 
   def resolveAsPointer(parent: URI, sub: URI): URI = {
     val resolved = parent.resolve(sub)
@@ -105,4 +103,3 @@ final case class JsonPointerStringStep(key: String) extends JsonPointerStep {
 final case class JsonPointerNumericStep(key: Int) extends JsonPointerStep {
   override def toString: String = "index " + key.toString
 }
-

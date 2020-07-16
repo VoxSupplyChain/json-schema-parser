@@ -13,16 +13,14 @@ import scalaz.syntax.std.either._
 
 class ExpandReferencesTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers with ScalazMatchers {
 
-
   def expand(s: String): Validation[String, Json] =
-    s.parse
-      .disjunction
+    s.parse.disjunction
       .flatMap(r => ExpandReferences.expand(new URI("http://x.y.z/rootschema.json#"), r))
       .validation
 
   ExpandReferences.getClass.getName should "expand references to absolute based on parent scopes" in {
 
-    expand( """
+    expand("""
               |{
               |    "id": "http://x.y.z/rootschema.json#",
               |    "schema1": {
@@ -53,7 +51,7 @@ class ExpandReferencesTest extends FlatSpec with GeneratorDrivenPropertyChecks w
 
   it should "expand references with file's scope if no id" in {
 
-    expand( """
+    expand("""
               |{
               |    "schema1": {
               |        "id": "#foo",
@@ -83,7 +81,7 @@ class ExpandReferencesTest extends FlatSpec with GeneratorDrivenPropertyChecks w
 
   it should "expand references in nested scopes" in {
 
-    expand( """
+    expand("""
               |{
               |    "schema1": {
               |        "id": "foo",
@@ -104,6 +102,5 @@ class ExpandReferencesTest extends FlatSpec with GeneratorDrivenPropertyChecks w
                                         | """.stripMargin.parse.validation
 
   }
-
 
 }

@@ -7,18 +7,17 @@ import argonaut.Json
 import scala.util.matching.Regex
 import scalaz.{IList, NonEmptyList}
 
-
 object SimpleType extends Enumeration {
   type SimpleType = Value
   val array, boolean, integer, number, string = Value
-  val aNull = Value("null")
-  val aObject = Value("object")
+  val aNull                                   = Value("null")
+  val aObject                                 = Value("object")
 }
 
 object Format extends Enumeration {
   type Format = Value
   val email, hostname, ipv4, ipv6, uri, regex = Value
-  val `date-time` = Value("date-time")
+  val `date-time`                             = Value("date-time")
 }
 
 sealed trait Boundary[N] {
@@ -55,45 +54,44 @@ case class NumberConstraint[N](multipleOf: Option[N], valueConstraint: RangeCons
 
 case class StringConstraint(stringConstraint: RangeConstrain[Inclusive[Int]], pattern: Option[Regex])
 
-case class ArrayConstraint[N](additionalItems: Option[Either[Boolean, SchemaDocument[N]]], items: ConstrainedList[SchemaDocument[N]], uniqueItems: Boolean)
+case class ArrayConstraint[N](
+    additionalItems: Option[Either[Boolean, SchemaDocument[N]]],
+    items: ConstrainedList[SchemaDocument[N]],
+    uniqueItems: Boolean
+)
 
 case class ObjectConstraint[N](
-                                additionalProperties: Option[SchemaDocument[N]],
-                                properties: ConstrainedMap[Property[N]],
-                                patternProperties: Map[Regex, SchemaDocument[N]]
-                                )
+    additionalProperties: Option[SchemaDocument[N]],
+    properties: ConstrainedMap[Property[N]],
+    patternProperties: Map[Regex, SchemaDocument[N]]
+)
 
 case class SchemaDocument[N](
-                              scope: URI,
-                              id: Option[URI] = None,
-                              schema: Option[URI] = None,
-                              // type specific constraints
-                              number: Option[NumberConstraint[N]] = None,
-                              string: Option[StringConstraint] = None,
-                              array: Option[ArrayConstraint[N]] = None,
-                              obj: Option[ObjectConstraint[N]] = None,
-
-                              // common
-                              enums: Set[Json] = Set.empty,
-                              nestedSchemas: Map[String, SchemaDocument[N]] = Map.empty[String, SchemaDocument[N]],
-
-                              title: Option[String] = None,
-                              description: Option[String] = None,
-
-                              format: Option[String] = None,
-
-                              definitions: Map[String, SchemaDocument[N]] = Map.empty[String, SchemaDocument[N]],
-                              dependencies: Map[String, Either[SchemaDocument[N], Set[String]]] = Map.empty[String, Either[SchemaDocument[N], Set[String]]],
-                              types: Set[SimpleType.SimpleType] = Set.empty,
-                              anyOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
-                              allOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
-                              oneOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
-                              not: Option[SchemaDocument[N]] = None
-
-                              ) {
+    scope: URI,
+    id: Option[URI] = None,
+    schema: Option[URI] = None,
+    // type specific constraints
+    number: Option[NumberConstraint[N]] = None,
+    string: Option[StringConstraint] = None,
+    array: Option[ArrayConstraint[N]] = None,
+    obj: Option[ObjectConstraint[N]] = None,
+    // common
+    enums: Set[Json] = Set.empty,
+    nestedSchemas: Map[String, SchemaDocument[N]] = Map.empty[String, SchemaDocument[N]],
+    title: Option[String] = None,
+    description: Option[String] = None,
+    format: Option[String] = None,
+    definitions: Map[String, SchemaDocument[N]] = Map.empty[String, SchemaDocument[N]],
+    dependencies: Map[String, Either[SchemaDocument[N], Set[String]]] =
+      Map.empty[String, Either[SchemaDocument[N], Set[String]]],
+    types: Set[SimpleType.SimpleType] = Set.empty,
+    anyOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
+    allOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
+    oneOf: IList[SchemaDocument[N]] = IList.empty[SchemaDocument[N]],
+    not: Option[SchemaDocument[N]] = None
+) {
   override def toString: String = {
     val key = id.getOrElse(scope)
     s"JsonSchema($key)"
   }
 }
-
