@@ -4,11 +4,14 @@ import java.net.URI
 import java.util.NoSuchElementException
 
 import argonaut.Argonaut._
+import argonaut.Json.JsonField
 import argonaut._
 
 import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 import scalaz.NonEmptyList
+
+import scala.collection.immutable.ListMap
 
 trait Decoders extends DecodeJsons {
 
@@ -87,4 +90,27 @@ trait Decoders extends DecodeJsons {
       q.result.fold(_ => y(c).map(Right(_)), _ => q)
     }
 
+  implicit def ListMapDecodeJson[V](implicit e: DecodeJson[V]): DecodeJson[ListMap[String, V]] =
+    DecodeJson(a =>
+      a.fields match {
+        case None => DecodeResult.fail("[V]Map[String, V]", a.history)
+        case Some(s) =>
+          def spin(
+              x: List[JsonField],
+              m: DecodeResult[ListMap[String, V]]
+          ): DecodeResult[ListMap[String, V]] =
+            x match {
+              case Nil => m
+              case h :: t =>
+                spin(
+                  t,
+                  for {
+                    mm <- m
+                    v  <- a.get(h)(e)
+                  } yield mm + ((h, v))
+                )
+            }
+          spin(s, DecodeResult.ok(ListMap.empty[String, V]))
+      }
+    )
 }
