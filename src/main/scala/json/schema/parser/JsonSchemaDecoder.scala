@@ -10,8 +10,6 @@ import scala.util.matching.Regex
 import scalaz.{IList, NonEmptyList}
 import json.schema.parser.JsonSchemaDecoder._
 
-import scala.collection.immutable.ListMap
-
 class JsonSchemaDecoder[N] protected (parentId: URI, rootSchema: Boolean)(implicit
     valueNumeric: Numeric[N],
     numberDecoder: DecodeJson[N]
@@ -94,7 +92,7 @@ class JsonSchemaDecoder[N] protected (parentId: URI, rootSchema: Boolean)(implic
       nestedDocumentDecoder: DecodeJson[Schema]
   ): DecodeResult[ObjectConstraint[N]] = {
     val mapOfSchemas = (c: HCursor, field: String) =>
-      c.get[Option[ListMap[String, Schema]]](field)(OptionDecodeJson(ListMapDecodeJson))
+      c.get[Option[Map[String, Schema]]](field)(OptionDecodeJson(MapDecodeJson))
     for {
       propsConstrain    <- rangeConstrain(c, "minProperties", "maxProperties")
       additionalProps   <- c.get[Option[Either[Boolean, Schema]]]("additionalProperties")
@@ -109,7 +107,7 @@ class JsonSchemaDecoder[N] protected (parentId: URI, rootSchema: Boolean)(implic
           _.fold[Option[Schema]](v => if (v) Some(SchemaDocument[N](scope)) else None, Option(_))
         ),
         ConstrainedMap(
-          properties.getOrElse(ListMap.empty).map {
+          properties.getOrElse(Map.empty).map {
             case (name, schema) => name -> Property(requiredField.contains(name), schema)
           },
           propsConstrain

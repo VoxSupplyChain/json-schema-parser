@@ -3,11 +3,9 @@ package json.schema.parser
 import java.net.URI
 
 import argonaut.Json
+import scalaz.IList
 
 import scala.util.matching.Regex
-import scalaz.{IList, NonEmptyList}
-
-import scala.collection.immutable.ListMap
 
 object SimpleType extends Enumeration {
   type SimpleType = Value
@@ -48,7 +46,7 @@ case class RangeConstrain[T](max: Option[T] = None, min: Option[T] = None)
 
 case class ConstrainedList[T](value: IList[T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
-case class ConstrainedMap[T](value: ListMap[String, T], sizeConstrain: RangeConstrain[Inclusive[Int]])
+case class ConstrainedMap[T](value: Map[String, T], sizeConstrain: RangeConstrain[Inclusive[Int]])
 
 case class Property[N](required: Boolean, schema: SchemaDocument[N])
 
